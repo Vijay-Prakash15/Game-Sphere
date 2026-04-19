@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, NavLink , Link} from "react-router-dom";
 import { FiLogOut } from "react-icons/fi";
 import AvatarImg from "../assets/Avatar.jpg";
 
@@ -42,8 +42,18 @@ export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const navigate = useNavigate();
 
+  // Join Room
+  const handleJoin = () => {
+    if (!roomId.trim()) {
+      alert("Please enter Room ID");
+      return;
+    }
+    navigate(`/room/${roomId}`);
+  };
+
+  // Logout
   const handleLogout = () => {
-    localStorage.removeItem("token"); // adjust if using different storage
+    localStorage.clear();
     navigate("/login");
   };
 
@@ -51,9 +61,7 @@ export default function Navbar() {
     <>
       {/* NAVBAR */}
       <nav className="sticky top-0 z-50 bg-white border-b border-blue-100 shadow-sm px-4 md:px-8 h-16 flex items-center justify-between">
-        
-        {/* Logo */}
-        <div className="flex items-center gap-2">
+        <NavLink  to="/home" className="flex items-center gap-2">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-sky-400 to-indigo-500 flex items-center justify-center">
             <LogoIcon />
           </div>
@@ -65,34 +73,58 @@ export default function Navbar() {
               PLAY TOGETHER
             </div>
           </div>
-        </div>
+        </NavLink >
 
-        {/* Desktop Links */}
+        {/* NAV LINKS */}
         <div className="hidden md:flex gap-8">
-          {["Home", "Games", "Leaderboard"].map((link) => (
-            <a
-              key={link}
-              href="#"
-              className="text-gray-700 font-medium hover:text-sky-400 transition"
-            >
-              {link}
-            </a>
-          ))}
+          <NavLink
+            to="/home"
+            end
+            className={({ isActive }) =>
+              isActive
+                ? "text-sky-500 font-semibold"
+                : "text-gray-700 font-medium hover:text-sky-400 transition"
+            }
+          >
+            Home
+          </NavLink>
+
+          <NavLink
+            to="/games"
+            className={({ isActive }) =>
+              isActive
+                ? "text-sky-500 font-semibold"
+                : "text-gray-700 font-medium hover:text-sky-400 transition"
+            }
+          >
+            Games
+          </NavLink>
+
+          <NavLink
+            to="/leaderboard"
+            className={({ isActive }) =>
+              isActive
+                ? "text-sky-500 font-semibold"
+                : "text-gray-700 font-medium hover:text-sky-400 transition"
+            }
+          >
+            Leaderboard
+          </NavLink>
         </div>
 
-        {/* Right Section */}
-        <div className="flex items-center gap-3 md:gap-10">
-          
-          {/* Room ID + Join */}
+        {/* RIGHT SECTION */}
+        <div className="flex items-center gap-3 md:gap-6">
+          {/* Join Room */}
           <div className="hidden sm:flex items-center gap-2">
             <input
               value={roomId}
               onChange={(e) => setRoomId(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleJoin()}
               placeholder="Room ID..."
               className="px-3 py-1.5 rounded-md border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-sky-300 w-24 md:w-32"
             />
             <button
-              type="button"
+              onClick={handleJoin}
               className="px-4 py-1.5 rounded-md bg-gray-900 text-white text-sm font-semibold hover:bg-gray-800 transition"
             >
               Join
@@ -102,7 +134,7 @@ export default function Navbar() {
           {/* Avatar */}
           <Avatar />
 
-          {/*  Logout Button */}
+          {/* Logout */}
           <button
             onClick={handleLogout}
             className="hidden sm:flex items-center justify-center p-2 text-gray-500 hover:text-blue-500 hover:bg-gray-100 rounded-md transition"
@@ -111,38 +143,65 @@ export default function Navbar() {
             <FiLogOut size={20} />
           </button>
 
-          {/* Hamburger */}
-          <button
-            className="md:hidden p-2"
-            onClick={() => setIsOpen(!isOpen)}
-          >
+          {/* Mobile Menu Toggle */}
+          <button className="md:hidden p-2" onClick={() => setIsOpen(!isOpen)}>
             {isOpen ? <CloseIcon /> : <MenuIcon />}
           </button>
         </div>
       </nav>
 
-      {/* MOBILE DROPDOWN */}
+      {/* MOBILE MENU */}
       <div
-        className={`md:hidden bg-white border-b border-gray-200 px-4 space-y-4 shadow-sm overflow-hidden transition-all duration-300 ease-in-out ${
+        className={`md:hidden bg-white border-b border-gray-200 px-4 space-y-4 shadow-sm overflow-hidden transition-all duration-300 ${
           isOpen ? "max-h-96 py-4 opacity-100" : "max-h-0 py-0 opacity-0"
         }`}
       >
-        {["Home", "Games", "Leaderboard"].map((link) => (
-          <a key={link} href="#" className="block text-gray-700 font-medium">
-            {link}
-          </a>
-        ))}
+        <NavLink
+          to="/home"
+          end
+          className={({ isActive }) =>
+            isActive
+              ? "block text-sky-500 font-semibold"
+              : "block text-gray-700 font-medium"
+          }
+        >
+          Home
+        </NavLink>
 
-        <div className="flex items-center gap-2 w-full">
+        <NavLink
+          to="/games"
+          className={({ isActive }) =>
+            isActive
+              ? "block text-sky-500 font-semibold"
+              : "block text-gray-700 font-medium"
+          }
+        >
+          Games
+        </NavLink>
+
+        <NavLink
+          to="/leaderboard"
+          className={({ isActive }) =>
+            isActive
+              ? "block text-sky-500 font-semibold"
+              : "block text-gray-700 font-medium"
+          }
+        >
+          Leaderboard
+        </NavLink>
+
+        {/* Mobile Join */}
+        <div className="flex gap-2">
           <input
             value={roomId}
             onChange={(e) => setRoomId(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleJoin()}
             placeholder="Room ID..."
-            className="flex-[1.25] min-w-0 px-3 py-2 rounded-md border border-gray-200 text-sm"
+            className="flex-1 px-3 py-2 rounded-md border border-gray-200 text-sm"
           />
           <button
-            type="button"
-            className="flex-[0.9] px-3 py-2 rounded-md bg-gray-900 text-white text-sm font-semibold"
+            onClick={handleJoin}
+            className="px-4 py-2 rounded-md bg-gray-900 text-white text-sm font-semibold"
           >
             Join
           </button>
@@ -151,7 +210,7 @@ export default function Navbar() {
         {/* Mobile Logout */}
         <button
           onClick={handleLogout}
-          className="flex items-center gap-2 text-red-500 font-medium"
+          className="flex items-center gap-2 text-blue-500 font-medium"
         >
           <FiLogOut /> Logout
         </button>
