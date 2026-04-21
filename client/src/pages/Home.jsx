@@ -233,3 +233,4 @@ bg-clip-text text-transparent tracking-tight"
     </div>
   );
 }
+
