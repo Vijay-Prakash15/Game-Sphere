@@ -1,5 +1,4 @@
 import { useState } from "react";
-import GameModal from "../components/GameModal";
 import {
   FaReact,
   FaBolt,
@@ -9,10 +8,82 @@ import {
   FaDiscord,
   FaTwitch,
 } from "react-icons/fa";
-import { FaCircleQuestion } from "react-icons/fa6"; // for help icon
 import Navbar from "../components/Navbar";
 
-// Icons unchanged...
+// ─── Game Modal Component ─────────────────────────────────────────────────────
+const GameModal = ({ game, onClose, onCreateRoom, onJoinRoom }) => {
+  if (!game) return null;
+
+  return (
+    <div
+      onClick={onClose}
+      className="fixed inset-0 bg-slate-900/45 backdrop-blur-sm flex items-center justify-center z-[1000] animate-fadeIn"
+    >
+      {/* MODAL */}
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-[20px] px-8 pt-9 pb-8 w-full max-w-[420px] shadow-[0_20px_60px_rgba(0,0,0,0.15)] relative animate-slideUp"
+      >
+        {/* CLOSE */}
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 w-8 h-8 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center text-lg hover:bg-slate-200 transition"
+        >
+          ✕
+        </button>
+
+        {/* ICON + TITLE */}
+        <div className="text-center mb-7">
+          <div
+            className="w-[72px] h-[72px] rounded-[18px] flex items-center justify-center text-[32px] mx-auto mb-4 shadow-md"
+            style={{ background: game.bgColor || "#dbeafe" }}
+          >
+            {game.icon}
+          </div>
+
+          <h2 className="text-2xl font-extrabold text-slate-900 mb-1">
+            {game.title}
+          </h2>
+          <p className="text-sm text-slate-500">What would you like to do?</p>
+        </div>
+
+        {/* CREATE ROOM */}
+        <div className="bg-blue-50 border-[1.5px] border-blue-200 rounded-[14px] p-5 mb-3">
+          <div className="font-bold text-[13px] tracking-wider text-blue-800 mb-1">
+            CREATE A ROOM
+          </div>
+          <div className="text-[13px] text-slate-500 mb-4">
+            Get unique code & invite friends
+          </div>
+
+          <button
+            onClick={() => onCreateRoom(game)}
+            className="w-full py-3 text-white font-bold text-sm tracking-wider rounded-[10px] bg-gradient-to-br from-blue-500 to-indigo-500 shadow-md hover:-translate-y-0.5 hover:shadow-lg transition"
+          >
+            CREATE ROOM
+          </button>
+        </div>
+
+        {/* JOIN ROOM */}
+        <div className="bg-purple-50 border-[1.5px] border-purple-200 rounded-[14px] p-5">
+          <div className="font-bold text-[13px] tracking-wider text-purple-700 mb-1">
+            JOIN A ROOM
+          </div>
+          <div className="text-[13px] text-slate-500 mb-4">
+            Have a code from a friend?
+          </div>
+
+          <button
+            onClick={() => onJoinRoom(game)}
+            className="w-full py-3 text-white font-bold text-sm tracking-wider rounded-[10px] bg-gradient-to-br from-purple-500 to-purple-700 shadow-md hover:-translate-y-0.5 hover:shadow-lg transition"
+          >
+            JOIN ROOM
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // ─── Game Card Component ──────────────────────────────────────────────────────
 const GameCard = ({
@@ -22,6 +93,7 @@ const GameCard = ({
   diffColor,
   buttonText,
   bgColor,
+  onClick,
 }) => (
   <div className="bg-white rounded-2xl px-6 pt-7 pb-5 min-w-[220px] flex-1 shadow-sm flex flex-col gap-2.5">
     {/* Icon Box */}
@@ -37,20 +109,113 @@ const GameCard = ({
       {difficulty}
     </div>
 
-    <button className="mt-2.5 py-3 w-full bg-white border border-gray-200 rounded-xl font-bold text-sm text-gray-900 hover:bg-gray-100 transition">
+    <button
+      onClick={onClick}
+      className="mt-2.5 py-3 w-full bg-white border border-gray-200 rounded-xl font-bold text-sm text-gray-900 hover:bg-gray-100 transition"
+    >
       {buttonText}
     </button>
   </div>
 );
 
+// ─── Multiplayer Games Data ───────────────────────────────────────────────────
+const MULTIPLAYER_GAMES = [
+  {
+    id: "tic-tac-toe",
+    icon: "✖️",
+    title: "Tic Tac Toe",
+    difficulty: "Beginner",
+    diffColor: "#22c55e",
+    buttonText: "Play Now",
+    bgColor: "#dbeafe",
+  },
+  {
+    id: "rock-paper-scissors",
+    icon: "✊",
+    title: "Rock Paper Scissors",
+    difficulty: "Beginner",
+    diffColor: "#22c55e",
+    buttonText: "Play Now",
+    bgColor: "#fef3c7",
+  },
+  {
+    id: "simon-game",
+    icon: "🧠",
+    title: "Simon Game",
+    difficulty: "Intermediate",
+    diffColor: "#f59e0b",
+    buttonText: "Play Now",
+    bgColor: "#ede9fe",
+  },
+  {
+    id: "guess-the-number",
+    icon: "#",
+    title: "Guess the Number",
+    difficulty: "Intermediate",
+    diffColor: "#f59e0b",
+    buttonText: "Play Now",
+    bgColor: "#d1fae5",
+  },
+];
+
+// ─── Single Player Games Data ─────────────────────────────────────────────────
+const SOLO_GAMES = [
+  {
+    id: "snake",
+    icon: "🐛",
+    title: "Snake",
+    difficulty: "Intermediate",
+    diffColor: "#f59e0b",
+    buttonText: "Play Solo",
+    bgColor: "#dcfce7",
+  },
+  {
+    id: "trivia-quiz",
+    icon: "💡",
+    title: "Trivia Quiz",
+    difficulty: "Advanced",
+    diffColor: "#ef4444",
+    buttonText: "Play Solo",
+    bgColor: "#dbeafe",
+  },
+];
+
 // ─── Main Home Component ──────────────────────────────────────────────────────
 export default function Home() {
-  const [roomId, setRoomId] = useState("");
+  const [selectedGame, setSelectedGame] = useState(null);
+
+  const handleOpenModal = (game) => {
+    setSelectedGame(game);
+  };
+
+  const handleCloseModal = () => {
+    setSelectedGame(null);
+  };
+
+  const handleCreateRoom = (game) => {
+    // TODO: Add your create room logic here
+    console.log("Creating room for:", game.title);
+    handleCloseModal();
+  };
+
+  const handleJoinRoom = (game) => {
+    // TODO: Add your join room logic here
+    console.log("Joining room for:", game.title);
+    handleCloseModal();
+  };
 
   return (
     <div className="font-sans bg-blue-50 min-h-screen">
       {/* NAVBAR */}
       <Navbar />
+
+      {/* GAME MODAL */}
+      <GameModal
+        game={selectedGame}
+        onClose={handleCloseModal}
+        onCreateRoom={handleCreateRoom}
+        onJoinRoom={handleJoinRoom}
+      />
 
       {/* HERO */}
       <section className="relative px-8 py-20 text-center overflow-hidden bg-gradient-to-br from-blue-100 via-white to-indigo-100">
@@ -59,6 +224,7 @@ export default function Home() {
           <div className="absolute top-0 left-1/4 w-[400px] h-[400px] bg-blue-300/30 rounded-full blur-3xl"></div>
           <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-indigo-300/30 rounded-full blur-3xl"></div>
         </div>
+
         <div className="inline-block bg-white border border-blue-200 rounded-full px-4 py-1.5 text-xs font-semibold text-blue-600 tracking-wider mb-7 animate-float">
           NEW: SIMON GAME ADDED
         </div>
@@ -69,8 +235,8 @@ export default function Home() {
 
         <h3
           className="text-[clamp(36px,6vw,64px)] font-bold leading-tight mb-7 
-bg-gradient-to-r from-blue-500 via-sky-400 to-indigo-500 
-bg-clip-text text-transparent tracking-tight"
+          bg-gradient-to-r from-blue-500 via-sky-400 to-indigo-500 
+          bg-clip-text text-transparent tracking-tight"
         >
           with Friends
         </h3>
@@ -99,7 +265,30 @@ bg-clip-text text-transparent tracking-tight"
       </section>
 
       {/* MULTIPLAYER */}
-      <GameModal />
+      <section className="px-8 py-14 bg-blue-50">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex justify-between items-end mb-8">
+            <div>
+              <h2 className="text-2xl font-extrabold text-slate-900 mb-1">
+                Multiplayer Games
+              </h2>
+              <p className="text-slate-500 text-sm">
+                Compete with friends or strangers globally
+              </p>
+            </div>
+          </div>
+
+          <div className="flex gap-5 flex-wrap">
+            {MULTIPLAYER_GAMES.map((game) => (
+              <GameCard
+                key={game.id}
+                {...game}
+                onClick={() => handleOpenModal(game)}
+              />
+            ))}
+          </div>
+        </div>
+      </section>
 
       {/* SINGLE PLAYER */}
       <section className="px-8 py-5 pb-14 bg-white">
@@ -114,22 +303,13 @@ bg-clip-text text-transparent tracking-tight"
           </div>
 
           <div className="flex gap-5 flex-wrap">
-            <GameCard
-              icon="🐛"
-              title="Snake"
-              difficulty="Intermediate"
-              diffColor="#f59e0b"
-              buttonText="Play Solo"
-              bgColor="#dcfce7"
-            />
-            <GameCard
-              icon="💡"
-              title="Trivia Quiz"
-              difficulty="Advanced"
-              diffColor="#ef4444"
-              buttonText="Play Solo"
-              bgColor="#dbeafe"
-            />
+            {SOLO_GAMES.map((game) => (
+              <GameCard
+                key={game.id}
+                {...game}
+                onClick={() => handleOpenModal(game)}
+              />
+            ))}
           </div>
         </div>
       </section>
@@ -157,7 +337,7 @@ bg-clip-text text-transparent tracking-tight"
       <footer className="bg-slate-900 text-white px-8 pt-14 pb-6">
         <div className="max-w-6xl mx-auto">
           <div className="flex gap-14 flex-wrap pb-10 border-b border-slate-800">
-            <div className="flex-1.5 min-w-[200px]">
+            <div className="flex-1 min-w-[200px]">
               <div className="flex items-center gap-2.5 mb-4">
                 <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-sky-400 to-indigo-500 flex items-center justify-center"></div>
                 <span className="font-extrabold text-base">Game Sphere</span>
@@ -192,7 +372,7 @@ bg-clip-text text-transparent tracking-tight"
                   >
                     {l}
                   </a>
-                ),
+                )
               )}
             </div>
 
@@ -225,12 +405,6 @@ bg-clip-text text-transparent tracking-tight"
           </div>
         </div>
       </footer>
-
-      {/* FLOATING BUTTON */}
-      {/* <button className="fixed bottom-6 right-6 w-11 h-11 rounded-full bg-gradient-to-br from-indigo-500 to-sky-400 shadow-lg flex items-center justify-center z-[999]">
-        <FaCircleQuestion />
-      </button> */}
     </div>
   );
 }
-
