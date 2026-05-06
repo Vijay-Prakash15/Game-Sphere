@@ -12,6 +12,7 @@ const useUserStore = create((set) => ({
       const data = await loginUser(formData);
 
       localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user));
 
       set({
         user: data.user,
@@ -29,6 +30,7 @@ const useUserStore = create((set) => ({
       const data = await registerUser(formData);
 
       localStorage.setItem("token", data.token); // ✅ store token
+      localStorage.setItem("user", JSON.stringify(data.user));
 
       set({
         user: data.user,
@@ -42,6 +44,7 @@ const useUserStore = create((set) => ({
   fetchUser: async () => {
     try {
       const data = await getMe();
+      localStorage.setItem("user", JSON.stringify(data));
       set({ user: data });
     } catch (err) {
       console.log("Not logged in");
@@ -50,6 +53,7 @@ const useUserStore = create((set) => ({
 
   logout: () => {
     localStorage.removeItem("token");
+    localStorage.removeItem("user");
     set({ user: null, token: null });
   },
 }));

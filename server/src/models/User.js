@@ -17,7 +17,19 @@ const userSchema = new mongoose.Schema({
     password: {
         type: String,
         required: true
-    }
+    },
+    totalMatches: { type: Number, default: 0 },
+    totalWins: { type: Number, default: 0 },
+    totalLosses: { type: Number, default: 0 },
+    stats: {
+        tictactoe: { wins: { type: Number, default: 0 }, losses: { type: Number, default: 0 }, totalRounds: { type: Number, default: 0 } },
+        rockpapersissors: { wins: { type: Number, default: 0 }, losses: { type: Number, default: 0 }, totalRounds: { type: Number, default: 0 } },
+        guessNumber: { wins: { type: Number, default: 0 }, losses: { type: Number, default: 0 }, totalRounds: { type: Number, default: 0 } },
+        quiz: { totalAttempts: { type: Number, default: 0 }, avgScore: { type: Number, default: 0 } },
+        snake: { bestScore: { type: Number, default: 0 } }
+    },
+    avatar: { type: String },
+    lastLogin: { type: Date }
 }, { timestamps: true });
 
 module.exports = mongoose.model("User", userSchema);

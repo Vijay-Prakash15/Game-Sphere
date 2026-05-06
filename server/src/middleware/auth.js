@@ -8,12 +8,16 @@ module.exports = function (req, res, next) {
       return res.status(401).json({ msg: "No token provided" });
     }
 
-    // 🔥 Bearer remove karo
     const token = authHeader.split(" ")[1];
 
     const verified = jwt.verify(token, process.env.JWT_SECRET);
 
-    req.userId = verified.userId;
+    // 🔥 FIX HERE
+    req.user = {
+      id: verified.userId,
+      name: verified.name // (agar token me hai)
+    };
+
     next();
 
   } catch (err) {

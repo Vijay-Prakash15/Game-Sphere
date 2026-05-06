@@ -3,6 +3,9 @@ import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
 import Home from "./pages/Home";
 import Lobby from "./pages/Lobby";
+import GameRoom from "./pages/GameRoom"; // ✅ ADD THIS
+import Quiz from "./pages/Quiz";
+import Snake from "./pages/Snake";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 const AppRoutes = () => {
@@ -28,6 +31,34 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <Lobby />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* 🔥 NEW ROUTE */}
+      <Route
+        path="/room/:code"
+        element={
+          <ProtectedRoute>
+            <GameRoom />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* 🎮 SINGLE PLAYER ROUTES */}
+      <Route
+        path="/quiz"
+        element={
+          <ProtectedRoute>
+            <Quiz />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/snake"
+        element={
+          <ProtectedRoute>
+            <Snake />
           </ProtectedRoute>
         }
       />

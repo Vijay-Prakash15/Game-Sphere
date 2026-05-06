@@ -7,6 +7,8 @@ export default {
     extend: {
       fontFamily: {
         game: ["Orbitron", "sans-serif"],
+        syne: ["Syne", "sans-serif"],
+        dm: ["DM Sans", "sans-serif"],
       },
       keyframes: {
         float: {

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   FaReact,
   FaBolt,
@@ -182,26 +183,108 @@ const SOLO_GAMES = [
 
 // ─── Main Home Component ──────────────────────────────────────────────────────
 export default function Home() {
+  const navigate = useNavigate();
   const [selectedGame, setSelectedGame] = useState(null);
 
   const handleOpenModal = (game) => {
-    setSelectedGame(game);
+    if (game.id === "snake") {
+      navigate("/snake");
+    } else if (game.id === "trivia-quiz") {
+      navigate("/quiz");
+    } else {
+      setSelectedGame(game);
+    }
   };
 
   const handleCloseModal = () => {
     setSelectedGame(null);
   };
 
-  const handleCreateRoom = (game) => {
-    // TODO: Add your create room logic here
-    console.log("Creating room for:", game.title);
-    handleCloseModal();
+  const handleCreateRoom = async (game) => {
+    try {
+      const token = localStorage.getItem("token"); // ✅ ADD THIS
+      if (!token) {
+        alert("Please login first");
+        return;
+      }
+
+      const res = await fetch("http://localhost:5000/api/rooms/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          gameType: game.id, // 🔥 dynamic game
+        }),
+      });
+
+      const data = await res.json();
+
+      console.log("ROOM CREATED:", data);
+
+      if (!data.success) {
+        alert(data.message || "Something went wrong");
+        return;
+      }
+
+      // ✅ success case
+      handleCloseModal();
+      navigate("/lobby", {
+        state: {
+          code: data.room.code,
+          gameType: game.id,
+          isHost: true,
+        },
+      });
+    } catch (err) {
+      console.log(err);
+    }
   };
 
-  const handleJoinRoom = (game) => {
-    // TODO: Add your join room logic here
-    console.log("Joining room for:", game.title);
-    handleCloseModal();
+  const handleJoinRoom = async (game) => {
+    const code = prompt("Enter Room Code:");
+
+    if (!code) return;
+
+    try {
+      const token = localStorage.getItem("token");
+
+      if (!token) {
+        alert("Please login first");
+        return;
+      }
+
+      const res = await fetch("http://localhost:5000/api/rooms/join", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ code }),
+      });
+
+      const data = await res.json();
+
+      console.log("JOIN:", data);
+
+      if (!data.success) {
+        alert(data.message || "Something went wrong");
+        return;
+      }
+
+      // ✅ success case
+      handleCloseModal();
+      navigate("/lobby", {
+        state: {
+          code: data.room.code,
+          gameType: game.id,
+          isHost: false,
+        },
+      });
+    } catch (err) {
+      console.log(err);
+    }
   };
 
   return (
@@ -247,11 +330,25 @@ export default function Home() {
         </p>
 
         <div className="flex gap-4 justify-center flex-wrap">
-          <button className="px-8 py-3.5 bg-gradient-to-br from-sky-400 to-sky-500 text-white font-bold text-sm rounded-xl shadow-lg hover:-translate-y-0.5 transition flex items-center gap-2">
+          <button
+            onClick={() =>
+              document.getElementById("multiplayer").scrollIntoView({
+                behavior: "smooth",
+              })
+            }
+            className="px-8 py-3.5 bg-gradient-to-br from-sky-400 to-sky-500 text-white font-bold text-sm rounded-xl shadow-lg hover:-translate-y-0.5 transition flex items-center gap-2"
+          >
             Play Multiplayer 👥
           </button>
 
-          <button className="px-8 py-3.5 bg-white text-gray-900 font-bold text-sm border border-gray-200 rounded-xl hover:-translate-y-0.5 transition flex items-center gap-2">
+          <button
+            onClick={() =>
+              document.getElementById("solo").scrollIntoView({
+                behavior: "smooth",
+              })
+            }
+            className="px-8 py-3.5 bg-white text-gray-900 font-bold text-sm border border-gray-200 rounded-xl hover:-translate-y-0.5 transition flex items-center gap-2"
+          >
             Play Solo 👤
           </button>
         </div>
@@ -265,7 +362,7 @@ export default function Home() {
       </section>
 
       {/* MULTIPLAYER */}
-      <section className="px-8 py-14 bg-blue-50">
+      <section id="multiplayer" className="px-8 py-14 bg-blue-50">
         <div className="max-w-6xl mx-auto">
           <div className="flex justify-between items-end mb-8">
             <div>
@@ -291,7 +388,7 @@ export default function Home() {
       </section>
 
       {/* SINGLE PLAYER */}
-      <section className="px-8 py-5 pb-14 bg-white">
+      <section id="solo" className="px-8 py-5 pb-14 bg-white">
         <div className="max-w-6xl mx-auto">
           <div className="mb-8">
             <h2 className="text-2xl font-extrabold text-slate-900 mb-1">
@@ -372,7 +469,7 @@ export default function Home() {
                   >
                     {l}
                   </a>
-                )
+                ),
               )}
             </div>
 
