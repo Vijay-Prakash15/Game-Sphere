@@ -32,7 +32,7 @@ exports.register = async (req, res) => {
 
     // 🔥 ADD THIS (TOKEN GENERATION)
     const token = jwt.sign(
-      { userId: user._id },
+      { userId: user._id, name: user.name },
       process.env.JWT_SECRET,
       { expiresIn: "1d" }
     );
@@ -48,6 +48,9 @@ exports.register = async (req, res) => {
 
   } catch (err) {
     console.error(err);
+    if (err.code === 11000) {
+      return res.status(400).json({ msg: "Display name or email is already registered" });
+    }
     res.status(500).json({ msg: "Server error" });
   }
 };
@@ -79,7 +82,7 @@ exports.login = async (req, res) => {
 
     // 🔹 Generate JWT
     const token = jwt.sign(
-      { userId: user._id },
+      { userId: user._id, name: user.name },
       process.env.JWT_SECRET,
       {
         expiresIn: "1d",
@@ -104,7 +107,7 @@ exports.login = async (req, res) => {
 
 exports.getMe = async (req, res) => {
   try {
-    const user = await User.findById(req.userId).select("-password");
+    const user = await User.findById(req.user.id).select("-password");
     res.json(user);
   } catch (err) {
     res.status(500).json({ msg: "Server error" });

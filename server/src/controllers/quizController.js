@@ -40,23 +40,36 @@ exports.submitQuiz = async (req, res) => {
     const { category, difficulty, answers } = req.body;
     const userId = req.user.id;
 
-    // A real implementation would verify answers against DB.
-    // For simplicity with dummy questions, we randomly assign correctness or logic
+    if (!answers || !Array.isArray(answers) || answers.length === 0) {
+      return res.status(400).json({ success: false, message: "Answers are required" });
+    }
+
+    // Batch query DB questions
+    const dbQuizIds = answers
+      .map(ans => ans.quizId)
+      .filter(id => id && !id.toString().startsWith("dummy"));
+
+    const dbQuestions = await Question.find({ _id: { $in: dbQuizIds } });
+    const questionMap = new Map(dbQuestions.map(q => [q._id.toString(), q]));
+
     let correctCount = 0;
     
-    const processedAnswers = await Promise.all(answers.map(async ans => {
-        let isCorrect = false;
-        if (ans.quizId.toString().startsWith("dummy")) {
-             isCorrect = (ans.selectedAnswer === 1); // We set dummy correct to 1
-        } else {
-            const dbQ = await Question.findById(ans.quizId);
-            if (dbQ && dbQ.correctAnswer === ans.selectedAnswer) {
-                isCorrect = true;
-            }
+    const processedAnswers = answers.map(ans => {
+      let isCorrect = false;
+      const quizIdStr = ans.quizId.toString();
+      
+      if (quizIdStr.startsWith("dummy")) {
+        isCorrect = (ans.selectedAnswer === 1);
+      } else {
+        const dbQ = questionMap.get(quizIdStr);
+        if (dbQ && dbQ.correctAnswer === ans.selectedAnswer) {
+          isCorrect = true;
         }
-        if (isCorrect) correctCount++;
-        return { ...ans, isCorrect };
-    }));
+      }
+      
+      if (isCorrect) correctCount++;
+      return { ...ans, isCorrect };
+    });
 
     const score = Math.round((correctCount / answers.length) * 100);
 

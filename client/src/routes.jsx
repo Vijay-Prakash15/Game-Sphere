@@ -6,6 +6,7 @@ import Lobby from "./pages/Lobby";
 import GameRoom from "./pages/GameRoom"; // ✅ ADD THIS
 import Quiz from "./pages/Quiz";
 import Snake from "./pages/Snake";
+import Result from "./pages/Result";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 const AppRoutes = () => {
@@ -59,6 +60,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <Snake />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/result/:roomCode"
+        element={
+          <ProtectedRoute>
+            <Result />
           </ProtectedRoute>
         }
       />

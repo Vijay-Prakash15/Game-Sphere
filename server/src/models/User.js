@@ -23,7 +23,7 @@ const userSchema = new mongoose.Schema({
     totalLosses: { type: Number, default: 0 },
     stats: {
         tictactoe: { wins: { type: Number, default: 0 }, losses: { type: Number, default: 0 }, totalRounds: { type: Number, default: 0 } },
-        rockpapersissors: { wins: { type: Number, default: 0 }, losses: { type: Number, default: 0 }, totalRounds: { type: Number, default: 0 } },
+        rockpaperscissors: { wins: { type: Number, default: 0 }, losses: { type: Number, default: 0 }, totalRounds: { type: Number, default: 0 } },
         guessNumber: { wins: { type: Number, default: 0 }, losses: { type: Number, default: 0 }, totalRounds: { type: Number, default: 0 } },
         quiz: { totalAttempts: { type: Number, default: 0 }, avgScore: { type: Number, default: 0 } },
         snake: { bestScore: { type: Number, default: 0 } }
@@ -31,5 +31,10 @@ const userSchema = new mongoose.Schema({
     avatar: { type: String },
     lastLogin: { type: Date }
 }, { timestamps: true });
+
+userSchema.index({ "stats.tictactoe.wins": -1 });
+userSchema.index({ "stats.rockpaperscissors.wins": -1 });
+userSchema.index({ "stats.guessNumber.wins": -1 });
+userSchema.index({ "stats.snake.bestScore": -1 });
 
 module.exports = mongoose.model("User", userSchema);

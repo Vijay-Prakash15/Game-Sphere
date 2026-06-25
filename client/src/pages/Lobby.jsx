@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import socket from "../socket/socket";
+import socket, { connectSocket } from "../socket/socket";
 import user1 from "../assets/user1.jpg";
 import user2 from "../assets/user2.jpg";
 
@@ -36,16 +36,17 @@ const Lobby = () => {
   useEffect(() => {
     if (!code || !myId) return;
 
-    socket.emit("join-room", { roomCode: code, userId: myId });
+    const s = connectSocket();
+    s.emit("join-room", { roomCode: code });
 
-    socket.on("room-update", (data) => setPlayers(data.players));
-    socket.on("game-started", () => navigate(`/room/${code}`));
+    s.on("room-update", (data) => setPlayers(data.players));
+    s.on("game-started", () => navigate(`/room/${code}`));
 
     return () => {
-      socket.off("room-update");
-      socket.off("game-started");
+      s.off("room-update");
+      s.off("game-started");
     };
-  }, [code, myId]);
+  }, [code, myId, navigate]);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(code);

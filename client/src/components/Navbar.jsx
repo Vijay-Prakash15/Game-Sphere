@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, NavLink , Link} from "react-router-dom";
 import { FiLogOut } from "react-icons/fi";
+import API from "../services/api";
 import AvatarImg from "../assets/Avatar.jpg";
 
 // Avatar
@@ -43,12 +44,27 @@ export default function Navbar() {
   const navigate = useNavigate();
 
   // Join Room
-  const handleJoin = () => {
+  const handleJoin = async () => {
     if (!roomId.trim()) {
       alert("Please enter Room ID");
       return;
     }
-    navigate(`/room/${roomId}`);
+    try {
+      const res = await API.post("/rooms/join", { code: roomId.trim() });
+      const data = res.data;
+      if (data.success) {
+        setRoomId("");
+        navigate("/lobby", {
+          state: {
+            code: data.room.code,
+            gameType: data.room.gameType,
+            isHost: false,
+          },
+        });
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to join room");
+    }
   };
 
   // Logout

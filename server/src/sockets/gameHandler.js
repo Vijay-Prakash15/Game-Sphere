@@ -1,38 +1,44 @@
 const Match = require("../models/Match");
 const User = require("../models/User");
 const GameRoom = require("../models/GameRoom");
+const { checkTicTacToeWin, checkRPSWin, getGuessHint } = require("../../../shared/gameRules");
+const { GAME_CONFIG } = require("../../../shared/constants");
 
 // In-memory room state for fast game loops
 const activeRooms = new Map();
 
-const GAME_CONFIG = {
-  tictactoe: { moveTimeLimitSeconds: 5, pointsPerWin: 1, boardSize: 3 },
-  rps: { choiceTimeLimitSeconds: 5, pointsPerWin: 1 },
-  guessNumber: {
-    guessTimeLimitSeconds: 5,
-    maxGuessesPerRound: 3,
-    pointsPerWin: 1,
-  },
-  matchFormat: { pointsToWin: 2, totalRounds: 3 },
-};
-
 const handleGameSockets = (io) => {
   io.on("connection", (socket) => {
-    console.log("User connected:", socket.id);
+    // Read user identity from JWT verified middleware
+    if (!socket.user) {
+      console.error("Socket connection missing verified user metadata.");
+      return socket.disconnect();
+    }
+    const userId = socket.user.id;
+    const username = socket.user.name;
 
-    socket.on("join-room", async ({ roomCode, userId }) => {
+    console.log(`Authenticated user connected: ${username} (${userId}) on socket ${socket.id}`);
+
+    socket.on("join-room", async ({ roomCode }) => {
       try {
-        console.log("JOIN ROOM:", roomCode, userId);
+        console.log("WS JOIN ROOM:", roomCode, "User:", username);
 
         const room = await GameRoom.findOne({ code: roomCode });
         if (!room) {
           return socket.emit("error", { message: "Room not found" });
         }
 
+        // Validate that user is allowed in the room
+        const isRegistered = room.players.some(p => p.userId.toString() === userId);
+        if (!isRegistered) {
+          return socket.emit("error", { message: "Access denied: Not registered in this room" });
+        }
+
         socket.join(roomCode);
 
         let state = activeRooms.get(roomCode);
         if (!state) {
+          // Sync state initialization with database values
           state = {
             gameType: room.gameType,
             roomId: room._id,
@@ -40,52 +46,64 @@ const handleGameSockets = (io) => {
             currentRound: 1,
             p1Score: 0,
             p2Score: 0,
-            status: "waiting",
+            status: room.status === "in-progress" ? "in_progress" : "waiting",
             roundsData: [],
+            disconnectTimeout: null
           };
           activeRooms.set(roomCode, state);
         }
 
-        // ✅ ADD / UPDATE PLAYER
-        const existingPlayer = state.players.find((p) => p.userId === userId);
-
-        if (!existingPlayer && state.players.length < 2) {
-          state.players.push({ socketId: socket.id, userId, ready: true });
-        } else if (existingPlayer) {
-          existingPlayer.socketId = socket.id;
+        // Reconnect cleanup: Clear disconnection timeout if player returns
+        if (state.disconnectTimeout) {
+          console.log(`Player returned. Clearing disconnect timeout for room ${roomCode}`);
+          clearTimeout(state.disconnectTimeout);
+          state.disconnectTimeout = null;
         }
 
-        console.log("UPDATED PLAYERS:", state.players);
+        // Add or update player details
+        const existingPlayer = state.players.find((p) => p.userId === userId);
+        if (!existingPlayer && state.players.length < 2) {
+          state.players.push({ socketId: socket.id, userId, username, ready: true });
+        } else if (existingPlayer) {
+          existingPlayer.socketId = socket.id;
+          existingPlayer.username = username;
+        }
 
-        // ✅ SEND UPDATE TO LOBBY
+        console.log(`LOBBY STATE (${roomCode}):`, state.players.map(p => p.username));
+
+        // Sync updates to lobby
         io.to(roomCode).emit("room-update", {
           players: state.players,
           status: state.status,
           gameType: state.gameType,
         });
 
-        // ✅ FIX 1: game-state-sync — only necessary fields
+        // Trigger synchronization payload
         socket.emit("game-state-sync", {
           players: state.players,
           status: state.status,
           gameType: state.gameType,
           p1Score: state.p1Score,
           p2Score: state.p2Score,
+          currentRound: state.currentRound,
+          board: state.board || null,
+          turnIndex: state.turnIndex ?? null,
+          guessesLeft: state.guessesLeft || null,
+          secretNumber: state.secretNumber || null,
         });
 
-        // ✅ START GAME IF 2 PLAYERS
+        // Automatically start game if room is full and waiting
         if (state.players.length === 2 && state.status === "waiting") {
-          state.status = "starting"; // prevent duplicate start
-          console.log("🔥 STARTING GAME...");
+          state.status = "starting";
           setTimeout(() => startGame(io, roomCode, state), 500);
         }
 
-        // reconnect sync
+        // Trigger immediate sync on reconnect in-progress
         if (state.status === "in_progress") {
           emitGameState(io, roomCode, state);
         }
       } catch (err) {
-        console.error("join-room error:", err);
+        console.error("Join-room error:", err);
         socket.emit("error", { message: "Failed to join room" });
       }
     });
@@ -95,11 +113,10 @@ const handleGameSockets = (io) => {
       const state = activeRooms.get(roomCode);
       if (!state || state.status !== "in_progress") return;
 
-      const playerIndex = state.players.findIndex(
-        (p) => p.socketId === socket.id,
-      );
+      const playerIndex = state.players.findIndex((p) => p.socketId === socket.id);
       if (playerIndex === -1) return;
 
+      // Delegate moves with bounds/validation checks
       if (state.gameType === "tic-tac-toe") {
         handleTicTacToeMove(io, roomCode, state, playerIndex, move);
       } else if (state.gameType === "rock-paper-scissors") {
@@ -110,30 +127,40 @@ const handleGameSockets = (io) => {
     });
 
     socket.on("disconnect", () => {
-      console.log("User disconnected:", socket.id);
+      console.log(`Socket disconnected: ${socket.id} (${username})`);
       for (const [roomCode, state] of activeRooms.entries()) {
-        const playerIndex = state.players.findIndex(
-          (p) => p.socketId === socket.id,
-        );
+        const playerIndex = state.players.findIndex((p) => p.socketId === socket.id);
+        
         if (playerIndex !== -1 && state.status === "in_progress") {
+          // Notify active opponent of drop
           socket.to(roomCode).emit("opponent-disconnected", {
-            message: "Opponent disconnected. Waiting for reconnect...",
+            message: "Opponent disconnected. 30s timeout started.",
           });
+
+          // Set 30s forfeit grace period
+          if (!state.disconnectTimeout) {
+            state.disconnectTimeout = setTimeout(async () => {
+              console.log(`Forfeit timeout triggered. Deleting active room ${roomCode}`);
+              const winnerIndex = playerIndex === 0 ? 1 : 0; // The player who did not disconnect wins
+              await endMatch(io, roomCode, state, winnerIndex);
+            }, 30000);
+          }
         }
       }
     });
   });
 };
 
-// --- Game Flow Controllers ---
+// --- Game Loop Implementation ---
 
 const startGame = (io, roomCode, state) => {
   state.status = "in_progress";
   state.currentRound = 1;
   state.p1Score = 0;
   state.p2Score = 0;
+  state.roundsData = [];
+  state.matchStartTime = Date.now();
 
-  // ✅ FIX 2: game-started — only necessary fields
   io.to(roomCode).emit("game-started", {
     players: state.players,
     status: "in_progress",
@@ -149,6 +176,7 @@ const startGame = (io, roomCode, state) => {
 const startRound = (io, roomCode, state) => {
   state.p1Move = null;
   state.p2Move = null;
+  state.roundStartTime = Date.now();
 
   emitGameState(io, roomCode, state);
 
@@ -166,6 +194,7 @@ const startRound = (io, roomCode, state) => {
     });
 
     startTimer(io, roomCode, state, GAME_CONFIG.tictactoe.moveTimeLimitSeconds);
+
   } else if (state.gameType === "rock-paper-scissors") {
     io.to(roomCode).emit("game-started", {
       round: state.currentRound,
@@ -176,6 +205,7 @@ const startRound = (io, roomCode, state) => {
     });
 
     startTimer(io, roomCode, state, GAME_CONFIG.rps.choiceTimeLimitSeconds);
+
   } else if (state.gameType === "guess-number") {
     state.secretNumber = null;
     state.guessesLeft = GAME_CONFIG.guessNumber.maxGuessesPerRound;
@@ -190,6 +220,9 @@ const startRound = (io, roomCode, state) => {
       pickerIndex: state.pickerIndex,
       guesserIndex: state.guesserIndex,
     });
+
+    // Start picker timer (15 seconds to set the number)
+    startTimer(io, roomCode, state, 15);
   }
 };
 
@@ -205,12 +238,14 @@ const endRound = async (io, roomCode, state, winnerIndex) => {
     state.p2Score++;
   }
 
+  const duration = Math.round((Date.now() - state.roundStartTime) / 1000);
+
   state.roundsData.push({
     roundNumber: state.currentRound,
     player1Move: state.p1Move,
     player2Move: state.p2Move,
     winner: roundWinner,
-    duration: 0,
+    duration,
   });
 
   io.to(roomCode).emit("round-result", {
@@ -232,30 +267,58 @@ const endRound = async (io, roomCode, state, winnerIndex) => {
   }
 };
 
-const endMatch = async (io, roomCode, state) => {
+const endMatch = async (io, roomCode, state, forcedWinnerIdx = null) => {
   state.status = "completed";
+  clearTimeout(state.timer);
+  if (state.disconnectTimeout) {
+    clearTimeout(state.disconnectTimeout);
+  }
 
   let finalWinner = "draw";
-  if (state.p1Score > state.p2Score) finalWinner = "player1";
-  else if (state.p2Score > state.p1Score) finalWinner = "player2";
+  if (forcedWinnerIdx !== null) {
+    finalWinner = forcedWinnerIdx === 0 ? "player1" : "player2";
+  } else {
+    if (state.p1Score > state.p2Score) finalWinner = "player1";
+    else if (state.p2Score > state.p1Score) finalWinner = "player2";
+  }
+
+  // Determine winner and loser IDs
+  let winnerId = null;
+  let loserId = null;
+
+  if (finalWinner === "player1") {
+    winnerId = state.players[0]?.userId;
+    loserId = state.players[1]?.userId;
+  } else if (finalWinner === "player2") {
+    winnerId = state.players[1]?.userId;
+    loserId = state.players[0]?.userId;
+  }
+
+  const duration = Math.round((Date.now() - (state.matchStartTime || Date.now())) / 1000);
 
   try {
     const match = new Match({
       roomId: state.roomId,
+      roomCode,
       gameType: state.gameType,
       player1Id: state.players[0].userId,
       player2Id: state.players[1].userId,
+      winnerId,
+      loserId,
       rounds: state.roundsData,
       finalWinner,
       player1Score: state.p1Score,
       player2Score: state.p2Score,
+      totalDuration: duration
     });
     await match.save();
 
+    // Update User Stats
     const p1 = await User.findById(state.players[0].userId);
     const p2 = await User.findById(state.players[1].userId);
 
     if (p1 && p2) {
+      // Fix spelling to use rockpaperscissors (spelled correctly)
       const gameKey = state.gameType.replace(/-/g, "");
 
       p1.totalMatches++;
@@ -280,16 +343,28 @@ const endMatch = async (io, roomCode, state) => {
     }
 
     await GameRoom.findByIdAndUpdate(state.roomId, { status: "completed" });
-    activeRooms.delete(roomCode);
 
+    // Emit Game Ended events for navigation and display
     io.to(roomCode).emit("match-result", {
       finalWinner,
       p1Score: state.p1Score,
       p2Score: state.p2Score,
       matchId: match._id,
     });
+
+    io.to(roomCode).emit("game-ended", {
+      roomCode,
+      winner: winnerId,
+      loser: loserId,
+      score: `${state.p1Score}-${state.p2Score}`,
+      duration
+    });
+
+    // Cleanup state
+    activeRooms.delete(roomCode);
+
   } catch (err) {
-    console.error("Failed to save match:", err);
+    console.error("Failed to conclude match:", err);
   }
 };
 
@@ -312,36 +387,45 @@ const handleTimeout = (io, roomCode, state) => {
     else if (!state.p2Move) endRound(io, roomCode, state, 0);
     else evaluateRPS(io, roomCode, state);
   } else if (state.gameType === "guess-number") {
-    state.guessesLeft--;
-    io.to(roomCode).emit("opponent-move", {
-      hint: "Time's up! Missed guess.",
-      guessesLeft: state.guessesLeft,
-    });
-    if (state.guessesLeft <= 0) {
-      endRound(io, roomCode, state, state.pickerIndex);
+    // If picker timed out choosing a number
+    if (state.secretNumber === null) {
+      console.log(`Picker timed out setting secret number in room ${roomCode}`);
+      // Picker forfeit round -> guesser wins
+      endRound(io, roomCode, state, state.guesserIndex);
     } else {
-      startTimer(
-        io,
-        roomCode,
-        state,
-        GAME_CONFIG.guessNumber.guessTimeLimitSeconds,
-      );
+      // Guesser timed out making a guess -> decrement guesses and update
+      state.guessesLeft--;
+      io.to(roomCode).emit("opponent-move", {
+        hint: "Time's up! Missed guess.",
+        guessesLeft: state.guessesLeft,
+      });
+      if (state.guessesLeft <= 0) {
+        endRound(io, roomCode, state, state.pickerIndex);
+      } else {
+        startTimer(io, roomCode, state, GAME_CONFIG.guessNumber.guessTimeLimitSeconds);
+      }
     }
   }
 };
 
-// --- Tic Tac Toe Logic ---
+// --- Game Logic Controllers ---
+
 const handleTicTacToeMove = (io, roomCode, state, playerIndex, move) => {
   if (state.turnIndex !== playerIndex) return;
-  if (state.board[move.position] !== null) return;
+  
+  // Enforce server-side move bounds validation
+  const pos = parseInt(move.position);
+  if (isNaN(pos) || pos < 0 || pos > 8 || state.board[pos] !== null) {
+    return;
+  }
 
   clearTimeout(state.timer);
 
   const symbol = playerIndex === 0 ? "X" : "O";
-  state.board[move.position] = symbol;
+  state.board[pos] = symbol;
 
-  if (playerIndex === 0) state.p1Move = move.position;
-  else state.p2Move = move.position;
+  if (playerIndex === 0) state.p1Move = pos;
+  else state.p2Move = pos;
 
   const nextTurn = playerIndex === 0 ? 1 : 0;
   state.turnIndex = nextTurn;
@@ -349,56 +433,45 @@ const handleTicTacToeMove = (io, roomCode, state, playerIndex, move) => {
   io.to(roomCode).emit("opponent-move", {
     board: state.board,
     turnIndex: nextTurn,
-    lastMove: { playerIndex, position: move.position },
+    lastMove: { playerIndex, position: pos },
   });
 
   const winner = checkTicTacToeWin(state.board);
   if (winner) {
     endRound(io, roomCode, state, playerIndex);
   } else if (state.board.every((c) => c !== null)) {
-    endRound(io, roomCode, state, -1);
+    endRound(io, roomCode, state, -1); // Draw
   } else {
     startTimer(io, roomCode, state, GAME_CONFIG.tictactoe.moveTimeLimitSeconds);
   }
 };
 
-const checkTicTacToeWin = (board) => {
-  const lines = [
-    [0, 1, 2],
-    [3, 4, 5],
-    [6, 7, 8],
-    [0, 3, 6],
-    [1, 4, 7],
-    [2, 5, 8],
-    [0, 4, 8],
-    [2, 4, 6],
-  ];
-  for (let [a, b, c] of lines) {
-    if (board[a] && board[a] === board[b] && board[a] === board[c])
-      return board[a];
-  }
-  return null;
-};
-
-// --- RPS Logic ---
 const handleRPSMove = (io, roomCode, state, playerIndex, move) => {
-  if (playerIndex === 0) state.p1Move = move.choice;
-  if (playerIndex === 1) state.p2Move = move.choice;
+  // Validate move input
+  const choice = move.choice;
+  if (!["R", "P", "S"].includes(choice)) return;
 
-  // ✅ 🔥 ADD HERE (IMPORTANT)
+  // Prevent editing already submitted moves
+  if (playerIndex === 0 && state.p1Move) return;
+  if (playerIndex === 1 && state.p2Move) return;
+
+  if (playerIndex === 0) state.p1Move = choice;
+  if (playerIndex === 1) state.p2Move = choice;
+
   io.to(state.players[playerIndex].socketId).emit("receive-move", {
     success: true,
   });
 
   const opponentIndex = playerIndex === 0 ? 1 : 0;
-
   if (state.players[opponentIndex]) {
     io.to(state.players[opponentIndex].socketId).emit("opponent-move", {
       opponentChosen: true,
     });
   }
 
+  // Evaluate round if both moves are registered
   if (state.p1Move && state.p2Move) {
+    clearTimeout(state.timer);
     evaluateRPS(io, roomCode, state);
   }
 };
@@ -414,50 +487,51 @@ const evaluateRPS = (io, roomCode, state) => {
     p2Move: p2,
   });
 
-  if (p1 === p2) {
+  const result = checkRPSWin(p1, p2);
+  if (result === "draw") {
     endRound(io, roomCode, state, -1);
-  } else if (
-    (p1 === "R" && p2 === "S") ||
-    (p1 === "S" && p2 === "P") ||
-    (p1 === "P" && p2 === "R")
-  ) {
+  } else if (result === "player1") {
     endRound(io, roomCode, state, 0);
   } else {
     endRound(io, roomCode, state, 1);
   }
 };
 
-// --- Guess Number Logic ---
 const handleGuessNumberMove = (io, roomCode, state, playerIndex, move) => {
-  clearTimeout(state.timer);
-
   if (playerIndex === state.pickerIndex) {
-    if (move.type === "set-number") {
-      state.secretNumber = parseInt(move.number);
+    if (move.type === "set-number" && state.secretNumber === null) {
+      const num = parseInt(move.number);
+      if (isNaN(num) || num < GAME_CONFIG.guessNumber.numberMin || num > GAME_CONFIG.guessNumber.numberMax) {
+        return;
+      }
+      clearTimeout(state.timer); // Clear picker timeout
+      state.secretNumber = num;
       io.to(roomCode).emit("opponent-move", { event: "number-set" });
-      startTimer(
-        io,
-        roomCode,
-        state,
-        GAME_CONFIG.guessNumber.guessTimeLimitSeconds,
-      );
+      
+      startTimer(io, roomCode, state, GAME_CONFIG.guessNumber.guessTimeLimitSeconds);
     }
   } else if (
     playerIndex === state.guesserIndex &&
     state.secretNumber !== null
   ) {
     const guess = parseInt(move.guess);
+    if (isNaN(guess) || guess < GAME_CONFIG.guessNumber.numberMin || guess > GAME_CONFIG.guessNumber.numberMax) {
+      return;
+    }
+
+    clearTimeout(state.timer);
     state.guessesLeft--;
 
-    if (guess === state.secretNumber) {
+    const hint = getGuessHint(guess, state.secretNumber);
+
+    if (hint === "Correct!") {
       io.to(roomCode).emit("opponent-move", {
-        hint: "Correct!",
+        hint,
         guess,
         guessesLeft: state.guessesLeft,
       });
       endRound(io, roomCode, state, state.guesserIndex);
     } else {
-      const hint = guess > state.secretNumber ? "Too high" : "Too low";
       io.to(roomCode).emit("opponent-move", {
         hint,
         guess,
@@ -467,12 +541,7 @@ const handleGuessNumberMove = (io, roomCode, state, playerIndex, move) => {
       if (state.guessesLeft <= 0) {
         endRound(io, roomCode, state, state.pickerIndex);
       } else {
-        startTimer(
-          io,
-          roomCode,
-          state,
-          GAME_CONFIG.guessNumber.guessTimeLimitSeconds,
-        );
+        startTimer(io, roomCode, state, GAME_CONFIG.guessNumber.guessTimeLimitSeconds);
       }
     }
   }

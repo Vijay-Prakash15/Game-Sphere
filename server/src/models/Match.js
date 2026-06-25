@@ -5,6 +5,9 @@ const matchSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: "GameRoom",
   },
+  roomCode: {
+    type: String,
+  },
   gameType: {
     type: String,
     enum: ["tic-tac-toe", "rock-paper-scissors", "guess-number"],
@@ -15,6 +18,14 @@ const matchSchema = new mongoose.Schema({
     ref: "User",
   },
   player2Id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+  },
+  winnerId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+  },
+  loserId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
   },
@@ -52,5 +63,9 @@ const matchSchema = new mongoose.Schema({
     default: Date.now,
   },
 });
+
+matchSchema.index({ player1Id: 1, createdAt: -1 });
+matchSchema.index({ player2Id: 1, createdAt: -1 });
+matchSchema.index({ roomCode: 1 });
 
 module.exports = mongoose.model("Match", matchSchema);

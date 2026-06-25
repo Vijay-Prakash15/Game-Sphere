@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import socket from "../socket/socket";
+import socket, { connectSocket } from "../socket/socket";
+import API from "../services/api";
 
 import TicTacToe from "../games/ticTacToe/TicTacToe";
 import RockPaperScissors from "../games/rps/RockPaperScissors";
@@ -34,13 +35,8 @@ const GameRoom = () => {
       }
 
       try {
-        const token = localStorage.getItem("token");
-
-        const res = await fetch(`http://localhost:5000/api/rooms/${code}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-        const data = await res.json();
+        const res = await API.get(`/rooms/${code}`);
+        const data = res.data;
 
         if (!data.success) {
           setError(data.message);
@@ -50,7 +46,8 @@ const GameRoom = () => {
         setRoom(data.room);
 
         // 🔥 Join room (IMPORTANT)
-        socket.emit("join-room", { roomCode: code, userId: myId });
+        const s = connectSocket();
+        s.emit("join-room", { roomCode: code });
       } catch (err) {
         setError("Failed to load room");
       } finally {
@@ -64,6 +61,8 @@ const GameRoom = () => {
   // ✅ 2. Socket Listeners
   useEffect(() => {
     if (!code || !myId) return;
+
+    const s = connectSocket();
 
     const handleStateSync = (state) => {
       setGameState(state);
@@ -85,27 +84,34 @@ const GameRoom = () => {
     };
 
     const handleRoundResult = (data) => setRoundResult(data);
-    const handleMatchResult = (data) => setMatchResult(data);
 
-    socket.on("game-state-sync", handleStateSync);
-    socket.on("game-started", handleGameStarted);
-    socket.on("opponent-move", handleOpponentMove);
-    socket.on("round-result", handleRoundResult);
-    socket.on("match-result", handleMatchResult);
+    const handleMatchResult = (data) => {
+      setMatchResult(data);
+      navigate(`/result/${code}`);
+    };
+
+    const handleConnect = () => {
+      s.emit("join-room", { roomCode: code });
+    };
+
+    s.on("game-state-sync", handleStateSync);
+    s.on("game-started", handleGameStarted);
+    s.on("opponent-move", handleOpponentMove);
+    s.on("round-result", handleRoundResult);
+    s.on("match-result", handleMatchResult);
 
     // 🔥 reconnect fix
-    socket.on("connect", () => {
-      socket.emit("join-room", { roomCode: code, userId: myId });
-    });
+    s.on("connect", handleConnect);
 
     return () => {
-      socket.off("game-state-sync", handleStateSync);
-      socket.off("game-started", handleGameStarted);
-      socket.off("opponent-move", handleOpponentMove);
-      socket.off("round-result", handleRoundResult);
-      socket.off("match-result", handleMatchResult);
+      s.off("game-state-sync", handleStateSync);
+      s.off("game-started", handleGameStarted);
+      s.off("opponent-move", handleOpponentMove);
+      s.off("round-result", handleRoundResult);
+      s.off("match-result", handleMatchResult);
+      s.off("connect", handleConnect);
     };
-  }, [code, myId]);
+  }, [code, myId, navigate]);
 
   // ✅ 3. Send Move
   const handleMakeMove = (moveData) => {

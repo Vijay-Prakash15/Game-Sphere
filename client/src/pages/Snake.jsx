@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import API from "../services/api";
 
 const GRID_SIZE = 20;
 const CANVAS_SIZE = 400;
@@ -114,6 +115,11 @@ const Snake = () => {
     if (score > highScore) {
         setHighScore(score);
     }
+    API.post("/user/snake/score", {
+      score,
+      foodEaten: Math.floor(score / 10),
+      duration: 0
+    }).catch(err => console.error("Error saving snake score:", err));
   };
 
   // Draw loop

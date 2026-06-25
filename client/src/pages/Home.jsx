@@ -10,6 +10,7 @@ import {
   FaTwitch,
 } from "react-icons/fa";
 import Navbar from "../components/Navbar";
+import API from "../services/api";
 
 // ─── Game Modal Component ─────────────────────────────────────────────────────
 const GameModal = ({ game, onClose, onCreateRoom, onJoinRoom }) => {
@@ -202,24 +203,17 @@ export default function Home() {
 
   const handleCreateRoom = async (game) => {
     try {
-      const token = localStorage.getItem("token"); // ✅ ADD THIS
+      const token = localStorage.getItem("token");
       if (!token) {
         alert("Please login first");
         return;
       }
 
-      const res = await fetch("http://localhost:5000/api/rooms/create", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          gameType: game.id, // 🔥 dynamic game
-        }),
+      const res = await API.post("/rooms/create", {
+        gameType: game.id,
       });
 
-      const data = await res.json();
+      const data = res.data;
 
       console.log("ROOM CREATED:", data);
 
@@ -239,6 +233,7 @@ export default function Home() {
       });
     } catch (err) {
       console.log(err);
+      alert(err.response?.data?.message || "Failed to create room");
     }
   };
 
@@ -255,16 +250,8 @@ export default function Home() {
         return;
       }
 
-      const res = await fetch("http://localhost:5000/api/rooms/join", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ code }),
-      });
-
-      const data = await res.json();
+      const res = await API.post("/rooms/join", { code });
+      const data = res.data;
 
       console.log("JOIN:", data);
 
@@ -284,6 +271,7 @@ export default function Home() {
       });
     } catch (err) {
       console.log(err);
+      alert(err.response?.data?.message || "Failed to join room");
     }
   };
 

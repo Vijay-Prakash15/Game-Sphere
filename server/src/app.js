@@ -11,11 +11,15 @@ const app = express();
 
 // ✅ CORS FIX (IMPORTANT)
 app.use(cors({
-  origin: "http://localhost:5173",
+  origin: process.env.CLIENT_URL || "http://localhost:5173",
   credentials: true
 }));
 
 app.use(express.json());
+
+// Rate Limiter middleware
+const rateLimiter = require("./middleware/rateLimiter");
+app.use("/api", rateLimiter(200, 15 * 60 * 1000)); // 200 requests per 15 mins
 
 // routes
 app.use("/api/auth", authRoutes);

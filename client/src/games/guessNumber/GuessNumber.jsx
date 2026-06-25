@@ -1,17 +1,19 @@
 import React, { useState } from "react";
 
 const GuessNumber = ({ gameState, myId, onMakeMove }) => {
+  if (!gameState || !gameState.players) {
+    return (
+      <div className="flex flex-col items-center justify-center p-8">
+        <div className="w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
+        <p className="mt-2 text-gray-500">Connecting guess board...</p>
+      </div>
+    );
+  }
   const { players, pickerIndex, guesserIndex, secretNumber, guessesLeft } = gameState;
   const myIndex = players.findIndex((p) => p.userId === myId);
   const isPicker = myIndex === pickerIndex;
 
   const [inputVal, setInputVal] = useState("");
-  const [hint, setHint] = useState("");
-
-  React.useEffect(() => {
-      // Clear hint on new round
-      setHint("");
-  }, [gameState.currentRound]);
 
   // Hooking into opponent moves for hints (this could be improved by passing events differently, 
   // but for simplicity, we can rely on a specific prop or check if guesses left changed)
@@ -63,7 +65,7 @@ const GuessNumber = ({ gameState, myId, onMakeMove }) => {
                      <p className="font-bold text-red-500">{guessesLeft} guesses remaining</p>
                      <input type="number" min="1" max="100" required value={inputVal} onChange={e => setInputVal(e.target.value)} className="p-3 border rounded-lg text-center font-bold text-xl" placeholder="Your guess" />
                      <button type="submit" className="bg-green-600 text-white font-bold py-3 rounded-lg shadow-md">Submit Guess</button>
-                     {hint && <p className="mt-2 text-lg font-bold text-orange-600">{hint}</p>}
+                     {gameState.currentHint && <p className="mt-2 text-lg font-bold text-orange-600">{gameState.currentHint}</p>}
                  </form>
              )}
         </div>

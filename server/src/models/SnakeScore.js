@@ -24,4 +24,7 @@ const snakeScoreSchema = new mongoose.Schema({
   },
 });
 
+snakeScoreSchema.index({ userId: 1 });
+snakeScoreSchema.index({ score: -1 });
+
 module.exports = mongoose.model("SnakeScore", snakeScoreSchema);

@@ -3,12 +3,13 @@ const router = express.Router();
 
 const auth = require("../middleware/auth");
 const User = require("../models/User");
+const { getUserProfile, saveSnakeScore } = require("../controllers/userController");
 
 // 🔐 GET CURRENT USER
 router.get("/me", auth, async (req, res) => {
   try {
     const user = await User
-      .findById(req.user.userId)
+      .findById(req.user.id)
       .select("-password"); // password hide
 
     if (!user) {
@@ -22,5 +23,11 @@ router.get("/me", auth, async (req, res) => {
     res.status(500).json({ msg: "Server error" });
   }
 });
+
+// 🔐 GET USER PROFILE STATS & HISTORY
+router.get("/profile/:userId", auth, getUserProfile);
+
+// 🔐 SAVE SNAKE SCORE
+router.post("/snake/score", auth, saveSnakeScore);
 
 module.exports = router;

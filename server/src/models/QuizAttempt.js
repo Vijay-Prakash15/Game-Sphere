@@ -46,4 +46,6 @@ const quizAttemptSchema = new mongoose.Schema({
   },
 });
 
+quizAttemptSchema.index({ userId: 1 });
+
 module.exports = mongoose.model("QuizAttempt", quizAttemptSchema);
