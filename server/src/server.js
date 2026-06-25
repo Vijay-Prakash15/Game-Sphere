@@ -1,5 +1,15 @@
 require("dotenv").config();
 
+const dns = require("dns");
+// Fix for querySrv ECONNREFUSED issues in local development environments where DNS fails to resolve MongoDB SRV/TXT records.
+if (process.env.MONGO_URI && process.env.MONGO_URI.startsWith("mongodb+srv://")) {
+  try {
+    dns.setServers(["8.8.8.8", "1.1.1.1"]);
+  } catch (err) {
+    console.warn("Warning: Could not set custom DNS servers, using default system DNS:", err.message);
+  }
+}
+
 // Enforce environment variables presence check
 const requiredEnv = ["JWT_SECRET", "MONGO_URI"];
 requiredEnv.forEach(envName => {
