@@ -1,626 +1,442 @@
-Multiplayer Game Platform
-STATUS: Pre-Development Planning • UPDATED: April 2026 • AUTHOR: Vijay Prakash Gupta
+# 🎮 GameSphere
 
-Architecture Overview
-Game Rules & Mechanics
-Database Schema
-Real-time Communication Flow
-API Endpoints
-Implementation Roadmap
-Time Limits & Constants
+**A real-time, full-stack multiplayer & single-player gaming platform**
 
-01. Game Mechanics
-🎯 OVERALL POINTS SYSTEM (ALL GAMES)
-1 point = 1 round win
-Best-of-3 format: First player to 2 points closes the match
-Match closes immediately when someone reaches 2 points (no need to play all 3 if one player is 2-0)
-Final display: "Player A Wins 2-0" or "Player A Wins 2-1"
+GameSphere lets players authenticate, create or join game lobbies via room codes, compete head-to-head over WebSockets, play classic single-player arcade games, and track their stats on global leaderboards.
 
-🎮 GAME 1: TIC TAC TOE
-Players: 2
- Format: Best-of-3 rounds
- Time Limit: 5 seconds per move
-Game Flow:
-Round 1 starts
-├─ Player A (X) vs Player B (O)
-├─ Players alternate turns
-├─ If Player A gets 3 in a row → Player A wins Round 1 (1 point)
-├─ If Player B gets 3 in a row → Player B wins Round 1 (1 point)
-├─ If board fills with no winner → Draw (no points to either)
-└─ Round 1 ends
+[![Live Demo](https://img.shields.io/badge/demo-live-brightgreen)](https://game-sphere-three.vercel.app/)
+[![GitHub Repo](https://img.shields.io/badge/github-repo-blue)](https://github.com/Vijay-Prakash15/Game-Sphere)
+[![Status](https://img.shields.io/badge/status-pre--development%20planning-orange)]()
 
-Player scores: A=1, B=0 (or A=0, B=1 or A=0, B=0)
+**🔗 Live App:** [game-sphere-three.vercel.app](https://game-sphere-three.vercel.app/)
+**📦 Repository:** [Vijay-Prakash15/Game-Sphere](https://github.com/Vijay-Prakash15/Game-Sphere)
 
-If either player has 2 points → Match Over
-Else → Round 2 starts (roles swap)
+---
 
-Move Validation:
-Must be a valid empty cell
-Must be made within 5 seconds (backend enforces timeout)
-Invalid moves are rejected, time restarts
-Timer pauses when waiting for opponent
-Win Conditions per Round:
-3 in a row (horizontal, vertical, diagonal) = 1 point
-Draw (9 filled cells, no winner) = 0 points to both
-Timeout (player doesn't move in 5 sec) = Opponent wins that round
+## 📋 Table of Contents
 
-🎮 GAME 2: ROCK PAPER SCISSORS
-Players: 2
- Format: Best-of-3 rounds
- Time Limit: 5 seconds to choose
-Game Flow:
-Round 1 starts
-├─ Both players choose R/P/S simultaneously (in a 5-sec window)
-├─ Frontend shows "Waiting for opponent..." while both choose
-├─ After 5 seconds (or both have chosen early), moves reveal
-├─ Compare: R beats S, S beats P, P beats R
-├─ If same choice → Draw
-├─ Winner gets 1 point
-└─ Round 1 ends
+- [Overview](#-overview)
+- [Architecture](#️-architecture)
+- [Tech Stack](#-tech-stack)
+- [Games & Mechanics](#-games--mechanics)
+  - [Points System](#overall-points-system-all-games)
+  - [Tic Tac Toe](#1-tic-tac-toe)
+  - [Rock Paper Scissors](#2-rock-paper-scissors)
+  - [Guess the Number](#3-guess-the-number)
+  - [Quiz](#4-quiz-single-player)
+  - [Snake](#5-snake-single-player)
+- [Database Schema](#-database-schema)
+- [Real-Time Communication (WebSocket Events)](#-real-time-communication-websocket-events)
+- [REST API Reference](#-rest-api-reference)
+- [Configuration & Constants](#️-configuration--constants)
+- [Security Considerations](#-security-considerations)
+- [Testing Checklist](#-testing-checklist)
+- [Delivery Roadmap](#️-delivery-roadmap)
+- [Future Enhancements](#-future-enhancements)
+- [Getting Started](#-getting-started)
+- [Author](#-author)
 
-If either player has 2 points → Match Over
-Else → Round 2 starts
+---
 
-Move Validation:
-Server records both choices when received (or timeout = forfeit = opponent wins)
-No partial reveals (client shows "Opponent chosen" until timer expires)
-Timeout = opponent automatically wins that round
-Win Conditions per Round:
-R beats S, S beats P, P beats R = 1 point
-Same choice = 0 points to both
-Timeout = opponent wins that round
+## 🧭 Overview
 
-🎮 GAME 3: GUESS THE NUMBER
-Players: 2 (roles alternate per round)
- Format: Best-of-3 rounds
- Max Guesses: 3 per round
- Time Limit: 5 seconds per guess (optional hint system)
-Game Flow - Round 1 (Player A picks, Player B guesses):
-Round 1 starts
-├─ Player A enters a secret number (1-100) in private screen
-├─ Player B sees: "Player A picked a number. Guess it!"
-├─ Player B enters a guess (gets 3 attempts)
-│  ├─ If guess is correct → Player B wins (1 point)
-│  ├─ If guess is wrong → Show hint ("Too high" / "Too low")
-│  │                       Player B can try again
-│  └─ After 3 guesses, if none correct → Player A wins (1 point)
-├─ If Player B doesn't guess in time (5 sec) → Guess counts as made
-└─ Round 1 ends
+GameSphere combines competitive PvP gameplay with solo arcade experiences in a single platform:
 
-Player scores: A=1, B=0 (or A=0, B=1)
+- **Real-time PvP**: Tic Tac Toe, Rock Paper Scissors, and Guess the Number, played over WebSockets with room-code based matchmaking.
+- **Single-player**: A category/difficulty-based Quiz engine and a classic Snake arcade game.
+- **Persistent profiles**: Every match, quiz attempt, and Snake run is recorded against a user profile, feeding global leaderboards and per-game statistics.
+- **Best-of-3 format**: All PvP games share one unified scoring model — first to 2 round wins takes the match.
 
-Round 2 starts (ROLES SWAP)
-├─ Player B enters secret number
-├─ Player A guesses (3 attempts)
-└─ Same logic applies
+---
 
-Round 3 starts (Player A picks again)
-├─ Same as Round 1 logic
+## 🏗️ Architecture
 
-Move Validation:
-Picker validation: Number must be 1-100 (integer)
-Guesser validation: Guess must be 1-100, within 5 seconds
-Hints: Strictly "Too high" or "Too low" (no actual numbers revealed)
-Timeout: If guesser doesn't submit within 5 sec, that guess is wasted
-Win Conditions per Round:
-Correct guess within 3 attempts = Guesser wins (1 point)
-3 guesses used, none correct = Picker wins (1 point)
-Hint Examples:
-Picker: 42
-Guesser: 50
-Hint: "Too high"
+GameSphere follows a split architecture with a real-time layer sitting alongside a traditional REST API:
 
-Guesser: 30
-Hint: "Too low"
+```mermaid
+graph TD
+    A[React Client] -- REST: auth, rooms, quiz, matches --> B[Express API Server]
+    A -- WebSocket: gameplay events --> C[Socket.io Server]
+    B --> D[(MongoDB / PostgreSQL)]
+    C --> D
+    B --- C
+    D --> E[Users]
+    D --> F[Game Rooms]
+    D --> G[Matches]
+    D --> H[Quizzes / Quiz Attempts]
+    D --> I[Snake Scores]
+```
 
-Guesser: 42
-Hint: "Correct!" (or "You win!")
+**Design principles:**
 
+| Principle | Implementation |
+|---|---|
+| Server-authoritative gameplay | All moves, timers, and win conditions are validated server-side — the client never decides outcomes. |
+| Separation of concerns | REST handles account/lobby setup; WebSockets handle only live gameplay events. |
+| Stateless auth | JWT tokens verified on both REST requests and WebSocket connection handshakes. |
+| Ephemeral lobbies | Game rooms use a TTL (`expiresAt`) so abandoned rooms are automatically cleaned up. |
 
-🎮 GAME 4: QUIZ (Single Player)
-Player Count: 1
- Format: Continuous questions from a pool
- Time Limit: 45 seconds per question
- Difficulty Levels: Easy, Medium, Hard
-Game Flow:
-Quiz starts
-├─ Display category selection (DSA / Aptitude / Web Dev)
-├─ Display difficulty selection (Easy / Medium / Hard)
-├─ Load ~10-15 questions from pool (shuffled)
-├─ For each question:
-│  ├─ Display question + 4 options (A, B, C, D)
-│  ├─ Player selects answer within 45 seconds
-│  ├─ If timeout → Mark as incorrect
-│  └─ Move to next question
-├─ After all questions:
-│  ├─ Calculate: (Correct / Total) × 100 = Score %
-│  ├─ Store result in database
-│  └─ Show: "You scored 75% (9/12 correct)"
-└─ Quiz ends
+---
 
-Scoring:
-├─ 80-100% = "Excellent"
-├─ 60-79% = "Good"
-├─ 40-59% = "Average"
-└─ 0-39% = "Poor"
+## 🛠️ Tech Stack
 
-Question Pool Structure:
-Categories:
-├─ DSA (Data Structures & Algorithms)
-│  ├─ Easy: 25-30 questions
-│  ├─ Medium: 25-30 questions
-│  └─ Hard: 20-25 questions
-├─ Aptitude (Logical Reasoning)
-│  ├─ Easy: 25-30 questions
-│  ├─ Medium: 25-30 questions
-│  └─ Hard: 20-25 questions
-└─ Web Dev
-   ├─ Easy: 25-30 questions
-   ├─ Medium: 25-30 questions
-   └─ Hard: 20-25 questions
+| Layer | Technology |
+|---|---|
+| Frontend | React + Socket.io Client |
+| Backend | Node.js + Express + Socket.io Server |
+| Database | MongoDB (or PostgreSQL) |
+| Auth | JWT (JSON Web Tokens) + bcrypt password hashing |
+| Hosting | Vercel (frontend) |
 
-Total: ~100 questions minimum (can be more)
+---
 
-Validation:
-Enforce 45-second timer server-side
-Record answer selection
-No reattempts (once submitted, move to next)
-Store quiz result with timestamp
+## 🎮 Games & Mechanics
 
-🎮 GAME 5: SNAKE (Single Player)
-Player Count: 1
- Format: Endless (until death)
- Controls: Arrow keys or WASD
-Game Flow:
-Snake game starts
-├─ Snake begins at center (length = 3)
-├─ Food apple spawns randomly
-├─ Player controls snake direction (up/down/left/right)
-├─ Snake moves continuously
-│  ├─ If snake eats food:
-│  │  ├─ Snake grows +1 segment
-│  │  ├─ Score += 10 points
-│  │  └─ New food spawns
-│  └─ If snake hits wall or itself:
-│     └─ Game Over
-├─ Display current score
-├─ On game over:
-│  ├─ Store final score in user profile
-│  └─ Show: "Game Over! Score: 120"
-└─ Game ends
+### Overall Points System (All Games)
 
-Difficulty (Progressive):
-Current approach: Simple constant speed
-Future enhancement: Increase speed every 5 foods eaten
+All PvP games share a unified **Best-of-3** scoring model:
 
-Scoring:
-Food eaten = +10 points
-Final score = Total points earned
+- 1 point = 1 round win
+- First player to **2 points** wins and closes the match immediately (no need to play a 3rd round if it's already 2–0)
+- Final results are displayed as `Player A Wins 2-0` or `Player A Wins 2-1`
 
-02. Data Architecture
-Collection: users
+---
+
+### 1. Tic Tac Toe
+
+| Property | Value |
+|---|---|
+| Players | 2 |
+| Format | Best-of-3 rounds |
+| Move Time Limit | 5 seconds |
+
+**Flow:** Players alternate placing X/O on a 3×3 grid. A round ends on 3-in-a-row (win), a full board (draw), or a move timeout (opponent auto-wins the round). Roles/symbols swap between rounds; the match ends the moment either player reaches 2 points.
+
+**Validation rules:**
+- Move must target a valid, empty cell
+- Move must be submitted within 5 seconds (enforced server-side)
+- Invalid moves are rejected and the timer restarts
+- The timer pauses while waiting on the opponent
+
+---
+
+### 2. Rock Paper Scissors
+
+| Property | Value |
+|---|---|
+| Players | 2 |
+| Format | Best-of-3 rounds |
+| Choice Time Limit | 5 seconds |
+
+**Flow:** Both players submit Rock/Paper/Scissors simultaneously within a 5-second window. The UI shows "Waiting for opponent…" until both choices are in (or the timer expires), then choices are revealed together — no partial reveals are ever sent to the client.
+
+**Validation rules:**
+- Server records both choices independently; a missed choice is a forfeit (opponent wins the round)
+- Same choice from both players = draw, no points awarded
+- R beats S, S beats P, P beats R
+
+---
+
+### 3. Guess the Number
+
+| Property | Value |
+|---|---|
+| Players | 2 (roles alternate each round) |
+| Format | Best-of-3 rounds |
+| Max Guesses | 3 per round |
+| Guess Time Limit | 5 seconds |
+
+**Flow:** One player (the *Picker*) secretly selects a number between 1–100. The other player (the *Guesser*) gets up to 3 attempts, receiving a `"Too high"` / `"Too low"` hint after each incorrect guess. A correct guess within 3 attempts wins the round for the Guesser; exhausting all 3 without success wins the round for the Picker.
+
+**Roles swap every round** — e.g. Player A picks in Round 1, Player B picks in Round 2, and Round 3 (if needed) reverts to Player A.
+
+**Validation rules:**
+- Picker's number must be an integer between 1–100
+- Guesser's guess must be an integer between 1–100, submitted within 5 seconds
+- Hints are strictly `"Too high"` / `"Too low"` — the actual number is never revealed early
+- A missed timer counts as a wasted guess attempt
+
+---
+
+### 4. Quiz (Single Player)
+
+| Property | Value |
+|---|---|
+| Players | 1 |
+| Question Time Limit | 45 seconds |
+| Difficulty Levels | Easy / Medium / Hard |
+| Categories | DSA, Aptitude, Web Dev |
+
+**Flow:** The player selects a category and difficulty, then answers 10–15 shuffled multiple-choice questions (4 options each) drawn from a pool of 100+ questions. Each question must be answered within 45 seconds or it's automatically marked incorrect. The final score is calculated as `(Correct / Total) × 100`.
+
+**Scoring bands:**
+
+| Score Range | Rating |
+|---|---|
+| 80–100% | Excellent |
+| 60–79% | Good |
+| 40–59% | Average |
+| 0–39% | Poor |
+
+**Validation rules:**
+- 45-second timer enforced server-side
+- No re-attempts once an answer is submitted
+- Correct answers are **never** included in the question payload sent to the client — only revealed via the scoring response after submission
+
+---
+
+### 5. Snake (Single Player)
+
+| Property | Value |
+|---|---|
+| Players | 1 |
+| Format | Endless, until death |
+| Controls | Arrow keys / WASD |
+
+**Flow:** The snake starts at the center of the board with a length of 3. Eating food grows the snake by 1 segment and awards +10 points, spawning new food. The game ends when the snake collides with a wall or itself, and the final score is persisted to the player's profile.
+
+**Planned enhancement:** progressive difficulty — speed increases every 5 food items eaten.
+
+---
+
+## 🗄️ Database Schema
+
+<details>
+<summary><strong>users</strong></summary>
+
+```js
 {
   _id: UUID,
   email: "player@example.com",
   username: "player_123",
   passwordHash: "bcrypt_hash",
   createdAt: ISODate,
-  
-  // Stats
+
   totalMatches: 45,
   totalWins: 28,
   totalLosses: 17,
-  
-  // Game-specific stats
+
   stats: {
     tictactoe: { wins: 10, losses: 5, totalRounds: 30 },
-    rockpapersissors: { wins: 8, losses: 7, totalRounds: 30 },
+    rockpaperscissors: { wins: 8, losses: 7, totalRounds: 30 },
     guessNumber: { wins: 10, losses: 5, totalRounds: 30 },
     quiz: { totalAttempts: 12, avgScore: 78.5 },
     snake: { bestScore: 240 }
   },
-  
+
   avatar: "avatar_url",
   lastLogin: ISODate
 }
+```
+</details>
 
-Collection: gameRooms
+<details>
+<summary><strong>gameRooms</strong></summary>
+
+```js
 {
   _id: UUID,
   code: "A7K9M2",
-  creatorId: UUID_reference_to_users,
+  creatorId: UUID_ref_users,
   gameType: "tic-tac-toe" | "rock-paper-scissors" | "guess-number",
-  
-  players: [
-    { userId: UUID, joinedAt: ISODate, ready: true }
-  ],
-  
+
+  players: [{ userId: UUID, joinedAt: ISODate, ready: true }],
+
   status: "waiting" | "in_progress" | "completed",
   currentRound: 1 | 2 | 3,
-  
-  // Match progress
+
   p1Score: 0,
   p2Score: 0,
-  
-  createdAt: ISODate,
-  expiresAt: ISODate,  // TTL: delete if expired
-  completedAt: ISODate (optional)
-}
 
-Collection: matches (One record = one completed 3-round game)
+  createdAt: ISODate,
+  expiresAt: ISODate,     // TTL: room auto-deleted if expired
+  completedAt: ISODate    // optional
+}
+```
+</details>
+
+<details>
+<summary><strong>matches</strong> — one record per completed 3-round game</summary>
+
+```js
 {
   _id: UUID,
-  roomId: UUID_reference_to_gameRooms,
+  roomId: UUID_ref_gameRooms,
   gameType: "tic-tac-toe" | "rock-paper-scissors" | "guess-number",
-  
+
   player1Id: UUID,
   player2Id: UUID,
-  
+
   rounds: [
-    {
-      roundNumber: 1,
-      player1Move: "X" | "R" | number,
-      player2Move: "O" | "P" | number,
-      winner: "player1" | "player2" | "draw",
-      duration: 45 // seconds
-    },
-    {
-      roundNumber: 2,
-      player1Move: "X",
-      player2Move: "O",
-      winner: "player1",
-      duration: 38
-    },
-    {
-      roundNumber: 3,
-      player1Move: "O",
-      player2Move: "X",
-      winner: "player1",
-      duration: 42
-    }
+    { roundNumber: 1, player1Move: "X", player2Move: "O", winner: "player1", duration: 45 },
+    { roundNumber: 2, player1Move: "X", player2Move: "O", winner: "player1", duration: 38 },
+    { roundNumber: 3, player1Move: "O", player2Move: "X", winner: "player1", duration: 42 }
   ],
-  
+
   finalWinner: "player1" | "player2" | "draw",
   player1Score: 2,
   player2Score: 1,
-  
-  totalDuration: 125, // seconds
+
+  totalDuration: 125,      // seconds
   completedAt: ISODate,
   createdAt: ISODate
 }
+```
+</details>
 
-Collection: quizzes
+<details>
+<summary><strong>quizzes</strong></summary>
+
+```js
 {
   _id: UUID,
   category: "DSA" | "Aptitude" | "WebDev",
   difficulty: "easy" | "medium" | "hard",
-  
+
   question: "What is time complexity of binary search?",
-  options: [
-    "O(1)",
-    "O(log n)",  // correct
-    "O(n)",
-    "O(n log n)"
-  ],
-  correctAnswer: 1,  // index of correct option
-  
+  options: ["O(1)", "O(log n)", "O(n)", "O(n log n)"],
+  correctAnswer: 1,    // index of correct option
+
   explanation: "Binary search halves the search space each time...",
-  
+
   createdAt: ISODate,
   updatedAt: ISODate
 }
+```
+</details>
 
-Collection: quizAttempts
+<details>
+<summary><strong>quizAttempts</strong></summary>
+
+```js
 {
   _id: UUID,
   userId: UUID,
   category: "DSA",
   difficulty: "medium",
-  
+
   questions: [
-    {
-      quizId: UUID,
-      selectedAnswer: 1,
-      isCorrect: true,
-      timeTaken: 23  // seconds
-    },
-    {
-      quizId: UUID,
-      selectedAnswer: 2,
-      isCorrect: false,
-      timeTaken: 45
-    }
+    { quizId: UUID, selectedAnswer: 1, isCorrect: true, timeTaken: 23 },
+    { quizId: UUID, selectedAnswer: 2, isCorrect: false, timeTaken: 45 }
   ],
-  
+
   totalCorrect: 9,
   totalQuestions: 12,
-  score: 75, // percentage
-  
+  score: 75,           // percentage
+
   startedAt: ISODate,
   completedAt: ISODate
 }
+```
+</details>
 
-Collection: snakeScores
+<details>
+<summary><strong>snakeScores</strong></summary>
+
+```js
 {
   _id: UUID,
   userId: UUID,
   score: 240,
   foodEaten: 24,
-  duration: 185, // seconds
+  duration: 185,        // seconds
   playedAt: ISODate
 }
+```
+</details>
 
+---
 
-03. Real-Time Infrastructure
-Connection Events
-CLIENT → SERVER
-On Room Creation:
-Event: "create-room"
-Data: { gameType: "tic-tac-toe" }
-Response: { roomCode: "A7K9M2", roomId: "uuid", expiresAt: timestamp }
+## 📡 Real-Time Communication (WebSocket Events)
 
-On Room Join:
-Event: "join-room"
-Data: { code: "A7K9M2", userId: "uuid" }
-Response: 
-  Success: { roomId: "uuid", players: [...], gameType: "..." }
-  Error: { error: "Invalid code" | "Room expired" | "Room full" }
+### Client → Server
 
-Game Move (Tic Tac Toe):
-Event: "make-move"
-Data: { 
-  roomId: "uuid", 
-  round: 1, 
-  position: 4,  // 0-8 on 3x3 grid
-  player: "A"
-}
-Response: { success: true, board: [...], opponent_received: true }
+| Event | Payload | Response |
+|---|---|---|
+| `create-room` | `{ gameType }` | `{ roomCode, roomId, expiresAt }` |
+| `join-room` | `{ code, userId }` | `{ roomId, players, gameType }` or `{ error }` |
+| `make-move` *(Tic Tac Toe)* | `{ roomId, round, position, player }` | `{ success, board, opponent_received }` |
+| `submit-choice` *(RPS)* | `{ roomId, round, choice: "R" \| "P" \| "S" }` | `{ success, waiting_for_opponent }` |
+| `submit-guess` *(Guess Number)* | `{ roomId, round, guess }` | `{ success, hint: "Too low" \| "Too high" \| "Correct" }` |
 
-Game Move (RPS):
-Event: "submit-choice"
-Data: { 
-  roomId: "uuid", 
-  round: 1, 
-  choice: "R" | "P" | "S"
-}
-Response: { success: true, waiting_for_opponent: true }
+### Server → Client (Broadcast)
 
-Game Move (Guess Number):
-Event: "submit-guess"
-Data: { 
-  roomId: "uuid", 
-  round: 1, 
-  guess: 42
-}
-Response: { success: true, hint: "Too low" | "Too high" | "Correct" }
+| Event | Payload |
+|---|---|
+| `opponent-joined` | `{ opponent: { userId, username } }` |
+| `game-started` | `{ round, gameType, youAre }` |
+| `opponent-move` | `{ round, position, board }` |
+| `round-result` | `{ round, winner, player1Score, player2Score, nextRoundStartsIn }` |
+| `match-result` | `{ finalWinner, p1Score, p2Score, matchId, reward }` |
+| `opponent-left` | `{ message: "Opponent disconnected. You win by default." }` |
 
-SERVER → CLIENT (Broadcast Events)
-Opponent Joined:
-Event: "opponent-joined"
-Data: { opponent: { userId: "uuid", username: "player_123" } }
+---
 
-Game Started:
-Event: "game-started"
-Data: { round: 1, gameType: "tic-tac-toe", youAre: "X" }
+## 🔌 REST API Reference
 
-Opponent Moved:
-Event: "opponent-move"
-Data: { 
-  round: 1, 
-  position: 4, 
-  board: [...]  // Tic tac toe board
-}
+### Authentication
 
-Round Results:
-Event: "round-result"
-Data: {
-  round: 1,
-  winner: "player1" | "player2" | "draw",
-  player1Score: 1,
-  player2Score: 0,
-  nextRoundStartsIn: 3  // seconds
-}
+| Method | Endpoint | Body | Response |
+|---|---|---|---|
+| `POST` | `/api/auth/register` | `{ email, password, username }` | `{ userId, token, message }` |
+| `POST` | `/api/auth/login` | `{ email, password }` | `{ userId, token, user }` |
+| `POST` | `/api/auth/logout` | — | `{ message }` |
 
-Match Results:
-Event: "match-result"
-Data: {
-  finalWinner: "player1" | "player2",
-  p1Score: 2,
-  p2Score: 1,
-  matchId: "uuid",
-  reward: "You won! +10 points to profile"
-}
+### User Profile
 
-Opponent Disconnected:
-Event: "opponent-left"
-Data: { message: "Opponent disconnected. You win by default." }
+| Method | Endpoint | Body | Response |
+|---|---|---|---|
+| `GET` | `/api/user/profile/:userId` | — | `{ userId, email, username, stats, recentMatches }` |
+| `PUT` | `/api/user/profile/:userId` | `{ username, avatar }` | `{ message }` |
 
+### Game Rooms *(REST for setup, WebSocket for live play)*
 
-04. API Specifications
-Authentication
-POST /api/auth/register
-  Body: { email, password, username }
-  Response: { userId, token, message: "Registration successful" }
+| Method | Endpoint | Body | Response |
+|---|---|---|---|
+| `POST` | `/api/rooms/create` | `{ gameType }` | `{ roomCode, roomId, expiresAt }` |
+| `GET` | `/api/rooms/:roomId` | — | `{ roomId, gameType, players, status, expiresAt }` |
+| `POST` | `/api/rooms/:roomId/join` | `{ userId }` | `{ message, roomId, opponent }` |
 
-POST /api/auth/login
-  Body: { email, password }
-  Response: { userId, token, user: { username, stats } }
+### Match History
 
-POST /api/auth/logout
-  Response: { message: "Logged out" }
+| Method | Endpoint | Response |
+|---|---|---|
+| `GET` | `/api/matches/user/:userId` | Array of `{ matchId, opponent, gameType, result, score, playedAt }` |
+| `GET` | `/api/matches/:matchId` | `{ matchId, players, gameType, rounds, finalWinner, completedAt }` |
 
-User Profile
-GET /api/user/profile/:userId
-  Response: { 
-    userId, email, username, 
-    stats: { totalWins, totalMatches, ... },
-    recentMatches: [...]
-  }
+### Quiz
 
-PUT /api/user/profile
-  Body: { username, avatar }
-  Response: { message: "Profile updated" }
+| Method | Endpoint | Body | Response |
+|---|---|---|---|
+| `GET` | `/api/quiz/questions/:category/:difficulty` | — | Array of `{ quizId, category, difficulty, question, options }` *(no correct answer included)* |
+| `POST` | `/api/quiz/submit` | `{ category, difficulty, answers: [{ quizId, selectedAnswer, timeTaken }] }` | `{ score, totalCorrect, totalQuestions, breakdown }` |
 
-Game Rooms (REST - for setup; WebSocket for gameplay)
-POST /api/rooms/create
-  Body: { gameType: "tic-tac-toe" }
-  Response: { roomCode: "A7K9M2", roomId: "uuid", expiresAt }
+### Leaderboard
 
-GET /api/rooms/:code
-  Response: { roomId, gameType, players, status, expiresAt }
+| Method | Endpoint | Response |
+|---|---|---|
+| `GET` | `/api/leaderboard/:gameType` | Array of `{ rank, username, wins, winRate, matchesPlayed }` |
 
-POST /api/rooms/:code/join
-  Body: { userId }
-  Response: { message: "Joined", roomId, opponent: {...} }
+---
 
-Match History
-GET /api/matches/user/:userId
-  Response: [
-    {
-      matchId: "uuid",
-      opponent: { username, userId },
-      gameType: "tic-tac-toe",
-      result: "win" | "loss",
-      score: "2-1",
-      playedAt: ISODate
-    }
-  ]
+## ⚙️ Configuration & Constants
 
-GET /api/matches/:matchId
-  Response: { 
-    matchId, players, gameType, rounds: [...],
-    finalWinner, completedAt
-  }
-
-Quiz
-GET /api/quiz/questions/:category/:difficulty
-  Response: [
-    {
-      quizId, category, difficulty, question, options: [...]
-      // Note: DO NOT include correctAnswer
-    }
-  ]
-
-POST /api/quiz/submit
-  Body: { 
-    category, difficulty, 
-    answers: [ { quizId, selectedAnswer, timeTaken }, ... ]
-  }
-  Response: { 
-    score: 75, 
-    totalCorrect: 9,
-    totalQuestions: 12,
-    breakdown: [...]
-  }
-
-Leaderboard
-GET /api/leaderboard/:gameType
-  Response: [
-    { rank: 1, username, wins, winRate, matchesPlayed },
-    ...
-  ]
-
-
-05. Delivery Roadmap
-Phase 1: Foundation (Weeks 1-2)
-[ ] Frontend setup (React + Socket.io client)
-[ ] Backend setup (Express + Socket.io server)
-[ ] Database setup (MongoDB/PostgreSQL)
-[ ] User authentication (JWT)
-[ ] Room creation & join (REST API)
-[ ] WebSocket connection initialization
-[ ] No game logic yet — just infrastructure
-Deliverable: Users can create rooms, get codes, and other users can join via code
-
-Phase 2: Tic Tac Toe (Weeks 2-3)
-[ ] Game board UI (3x3 grid)
-[ ] Turn-based move handling
-[ ] WebSocket move sync
-[ ] 5-second timer per move
-[ ] Win detection (3 in a row)
-[ ] Draw detection (board full)
-[ ] 3-round loop logic
-[ ] Final winner calculation
-[ ] Match saved to DB
-Deliverable: Two players can play 3 rounds of Tic Tac Toe and see final result
-
-Phase 3: Rock Paper Scissors (Weeks 3-4)
-[ ] RPS UI (3 buttons: Rock, Paper, Scissors)
-[ ] Simultaneous move handling
-[ ] "Waiting for opponent..." state
-[ ] Reveal logic (both submitted = reveal)
-[ ] Win calculation (R > S, P > R, S > P)
-[ ] Draw handling
-[ ] 3-round loop logic
-[ ] Match saved to DB
-Deliverable: Two players can play 3 rounds of RPS
-
-Phase 4: Guess the Number (Weeks 4-5)
-[ ] Number input screen (for picker)
-[ ] Guess input screen (for guesser)
-[ ] 3-guess limit per round
-[ ] Hint logic ("too high", "too low")
-[ ] Role swap logic (A picks round 1, B picks round 2, etc.)
-[ ] Win detection
-[ ] 3-round loop
-[ ] Match saved to DB
-Deliverable: Full guess game working with role swaps
-
-Phase 5: Single-Player Games (Weeks 5-6)
-Quiz:
-[ ] Category selection UI
-[ ] Difficulty selection UI
-[ ] Question loader + shuffling
-[ ] 45-second timer per question
-[ ] Answer selection (A/B/C/D)
-[ ] Score calculation (% correct)
-[ ] Results display
-[ ] Quiz attempt saved to DB
-Snake:
-[ ] Canvas setup (2D context)
-[ ] Snake initialization
-[ ] Keyboard controls
-[ ] Snake movement logic
-[ ] Food spawning
-[ ] Collision detection (walls, self)
-[ ] Score tracking (+10 per food)
-[ ] Game over state
-[ ] Score saved to DB
-Deliverable: Both single-player games fully playable
-
-Phase 6: Points System & Polish (Weeks 6-7)
-[ ] Add points calculation to all games
-[ ] Round-by-round points display
-[ ] Best-of-3 (close on 2 wins) logic
-[ ] Final leaderboard screen
-[ ] User stats updating
-[ ] UI animations
-[ ] Loading states
-[ ] Error handling
-Deliverable: Fully playable MVP with points system
-
-PART 6: TIME LIMITS & CONSTANTS
-// Game Configuration
+```js
 const GAME_CONFIG = {
-  // Room
-  roomCodeLength: 6,
-  roomExpireMinutes: 1,
-  
-  // Tic Tac Toe
+  room: {
+    roomCodeLength: 6,
+    roomExpireMinutes: 1
+  },
   tictactoe: {
     moveTimeLimitSeconds: 5,
     boardSize: 3,
     pointsPerWin: 1
   },
-  
-  // Rock Paper Scissors
   rps: {
     choiceTimeLimitSeconds: 5,
     revealDelaySeconds: 1,
     pointsPerWin: 1
   },
-  
-  // Guess the Number
   guessNumber: {
     guessTimeLimitSeconds: 5,
     maxGuessesPerRound: 3,
@@ -628,59 +444,138 @@ const GAME_CONFIG = {
     numberMax: 100,
     pointsPerWin: 1
   },
-  
-  // Quiz
   quiz: {
     questionTimeLimitSeconds: 45,
     maxQuestionsPerSession: 15,
     minQuestionsForScore: 10
   },
-  
-  // Snake
   snake: {
     pointsPerFood: 10,
     initialLength: 3,
     boardWidth: 400,
     boardHeight: 400
   },
-  
-  // Best-of-3
   matchFormat: {
-    pointsToWin: 2,  // First to 2 wins
-    totalRounds: 3   // Max 3 rounds (if needed)
+    pointsToWin: 2,     // first to 2 wins
+    totalRounds: 3       // max rounds if needed
   }
 };
+```
 
+---
 
-PART 7: SECURITY CONSIDERATIONS
-Move Validation: Always validate moves server-side. Never trust client.
-Time Limits: Enforce server-side timers, not just client-side
-Room Codes: Use a salt when generating codes
-WebSocket Auth: Verify JWT token in every WebSocket connection
-Quiz Answers: Never send correct answers in API response until quiz is submitted
-Disconnect Handling: If player disconnects, other player wins by default after 30 sec timeout
+## 🔒 Security Considerations
 
-PART 8: TESTING CHECKLIST
-[ ] Two players can join same room via code
-[ ] Timer enforces 5-second limits in Tic Tac Toe
-[ ] RPS reveals only after both have chosen or timeout
-[ ] Guess game allows role swap correctly
-[ ] Quiz enforces 45-second per question
-[ ] Points system correctly calculates winners
-[ ] Best-of-3 closes immediately on 2 wins
-[ ] All games save results to DB correctly
-[ ] WebSocket reconnection works
-[ ] Opponent disconnect shows message
+- **Server-side move validation** — the client is never trusted for outcomes; every move, guess, and choice is verified on the backend.
+- **Enforced timers** — all time limits (5s moves, 45s quiz questions) are enforced server-side, not just visually on the client.
+- **Salted room codes** — room codes are generated with a salt to prevent guessing/collision.
+- **WebSocket authentication** — JWT tokens are verified on every WebSocket connection, not just on initial REST login.
+- **Hidden quiz answers** — correct answers are never included in the question payload; they're only used server-side during grading.
+- **Disconnect handling** — if a player disconnects mid-match, the opponent wins by default after a 30-second grace period.
 
-PART 9: FUTURE ENHANCEMENTS
-[ ] Multiplayer leaderboard
-[ ] Friend system
-[ ] Achievements/Badges
-[ ] Ranked mode
-[ ] AI opponent for practice
-[ ] In-game chat
-[ ] Tournament mode
-[ ] Mobile app
+---
 
-END OF SPECIFICATION
+## ✅ Testing Checklist
 
+- [ ] Two players can join the same room via code
+- [ ] Timer enforces 5-second limits in Tic Tac Toe
+- [ ] RPS reveals only after both players have chosen, or on timeout
+- [ ] Guess the Number correctly swaps picker/guesser roles each round
+- [ ] Quiz enforces the 45-second per-question limit
+- [ ] Points system correctly calculates round and match winners
+- [ ] Best-of-3 closes immediately once a player reaches 2 points
+- [ ] All completed games persist correctly to the database
+- [ ] WebSocket reconnection works as expected
+- [ ] Opponent disconnect triggers the correct default-win message
+
+---
+
+## 🗺️ Delivery Roadmap
+
+| Phase | Weeks | Deliverable |
+|---|---|---|
+| **1. Foundation** | 1–2 | Users can create rooms, get codes, and join via code (infra only, no game logic) |
+| **2. Tic Tac Toe** | 2–3 | Two players can play 3 rounds of Tic Tac Toe with a final result |
+| **3. Rock Paper Scissors** | 3–4 | Two players can play 3 rounds of RPS |
+| **4. Guess the Number** | 4–5 | Full guess game with correct role swapping |
+| **5. Single-Player Games** | 5–6 | Quiz and Snake fully playable end-to-end |
+| **6. Points System & Polish** | 6–7 | Fully playable MVP with points, leaderboard, animations, and error handling |
+
+<details>
+<summary>Expand full task breakdown</summary>
+
+**Phase 1 — Foundation**
+- Frontend setup (React + Socket.io client)
+- Backend setup (Express + Socket.io server)
+- Database setup (MongoDB/PostgreSQL)
+- User authentication (JWT)
+- Room creation & join (REST API)
+- WebSocket connection initialization
+
+**Phase 2 — Tic Tac Toe**
+- 3×3 grid UI, turn-based move handling, WebSocket move sync
+- 5-second move timer, win/draw detection, 3-round loop, match persisted to DB
+
+**Phase 3 — Rock Paper Scissors**
+- RPS UI, simultaneous move handling, "waiting for opponent" state
+- Reveal logic, win calculation, draw handling, 3-round loop, match persisted to DB
+
+**Phase 4 — Guess the Number**
+- Picker/guesser input screens, 3-guess limit, hint logic
+- Role-swap logic, win detection, 3-round loop, match persisted to DB
+
+**Phase 5 — Single-Player Games**
+- *Quiz:* category/difficulty selection, question loader + shuffling, 45s timer, scoring, attempt persisted to DB
+- *Snake:* canvas setup, movement logic, keyboard controls, food spawning, collision detection, score tracking, score persisted to DB
+
+**Phase 6 — Points System & Polish**
+- Points calculation across all games, round-by-round display, best-of-3 closing logic
+- Final leaderboard screen, user stats updates, UI animations, loading states, error handling
+
+</details>
+
+---
+
+## 🚀 Future Enhancements
+
+- [ ] Multiplayer leaderboard
+- [ ] Friend system
+- [ ] Achievements / badges
+- [ ] Ranked mode
+- [ ] AI opponent for practice
+- [ ] In-game chat
+- [ ] Tournament mode
+- [ ] Mobile app
+
+---
+
+## 🏁 Getting Started
+
+```bash
+# Clone the repository
+git clone https://github.com/Vijay-Prakash15/Game-Sphere.git
+cd Game-Sphere
+
+# Install dependencies (client & server)
+npm install
+
+# Configure environment variables
+# (JWT secret, database connection string, client/server ports, etc.)
+cp .env.example .env
+
+# Run the development servers
+npm run dev
+```
+
+> ⚠️ **Note:** This project is currently in the **Pre-Development Planning** stage — the setup steps above assume the standard structure described in this specification and may need to be adapted as the codebase evolves.
+
+---
+
+## 👤 Author
+
+**Vijay Prakash Gupta**
+🔗 [GitHub Profile](https://github.com/Vijay-Prakash15)
+
+---
+
+<p align="center">Made with ❤️ for real-time multiplayer fun</p>

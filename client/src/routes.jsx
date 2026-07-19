@@ -28,7 +28,7 @@ const AppRoutes = () => {
       />
 
       <Route
-        path="/lobby"
+        path="/lobby/:code"
         element={
           <ProtectedRoute>
             <Lobby />
@@ -39,37 +39,7 @@ const AppRoutes = () => {
       {/* 🔥 NEW ROUTE */}
       <Route
         path="/room/:code"
-        element={
-          <ProtectedRoute>
-            <GameRoom />
-          </ProtectedRoute>
-        }
-      />
-
-      {/* 🎮 SINGLE PLAYER ROUTES */}
-      <Route
-        path="/quiz"
-        element={
-          <ProtectedRoute>
-            <Quiz />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/snake"
-        element={
-          <ProtectedRoute>
-            <Snake />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/result/:roomCode"
-        element={
-          <ProtectedRoute>
-            <Result />
-          </ProtectedRoute>
-        }
+        element={<ProtectedRoute>{/* <GameRoom /> */}</ProtectedRoute>}
       />
     </Routes>
   );
