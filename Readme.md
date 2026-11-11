@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # 🎮 GameSphere
 
 **A real-time, full-stack multiplayer & single-player gaming platform**
@@ -579,3 +580,380 @@ npm run dev
 ---
 
 <p align="center">Made with ❤️ for real-time multiplayer fun</p>
+=======
+# 🌌 GameSphere
+
+GameSphere is a real-time, full-stack multiplayer and single-player gaming platform. It allows users to authenticate, create or join game lobbies via room codes, play real-time player-vs-player (PvP) games using WebSockets, play classic single-player arcade games, and track user profile stats on global leaderboards.
+
+---
+
+## 🏗️ Architecture Overview
+
+GameSphere uses a split-monorepo architecture with a React-based frontend client, a Node.js/Express backend server, a MongoDB database, and a shared module to keep configuration, event names, and game verification rules perfectly in sync.
+
+```mermaid
+graph TD
+    Client[React Frontend] <-->|HTTP REST / JWT| Server[Express Backend]
+    Client <-->|WebSockets / Socket.io| SocketHandler[Socket.io Server]
+    Server <-->|Mongoose ODM| DB[(MongoDB)]
+    SocketHandler <-->|Real-time Loops| DB
+    Shared[Shared Logic] -.->|Imports constants, rules, events| Client
+    Shared -.->|Imports constants, rules, events| Server
+```
+
+---
+
+## 🎮 Game Suite & Mechanics
+
+The platform integrates a total of 5 games categorized into multiplayer PvP and single-player PvE formats.
+
+### 👥 Multiplayer Games (PvP)
+All multiplayer games utilize a **Best-of-3 rounds** format. The match ends immediately when a player reaches **2 points**. A backend timer enforces a **5-second timeout** per move/action.
+
+1. **Tic Tac Toe**
+   - **Format:** Turn-based 3x3 grid.
+   - **Rules:** Players alternate placing symbols (`X` and `O`). First to align 3 in a row (horizontal, vertical, or diagonal) wins the round.
+   - **Time Limit:** 5 seconds per turn. If a player fails to move, the opponent wins that round.
+
+2. **Rock Paper Scissors**
+   - **Format:** Simultaneous selection.
+   - **Rules:** Both players pick Rock (`R`), Paper (`P`), or Scissors (`S`) within a 5-second window. The choices are kept hidden until both choose or time expires, after which a reveal determines the round winner.
+   - **Time Limit:** 5 seconds to select. Forfeiting due to timeout counts as a round loss.
+
+3. **Guess the Number**
+   - **Format:** Alternating picker and guesser roles.
+   - **Rules:** 
+     - *Round 1:* Player A enters a secret number (1–100). Player B gets up to 3 attempts to guess it.
+     - *Round 2:* Roles swap; Player B picks, Player A guesses.
+     - *Round 3:* Player A picks again.
+     - Hints ("Too high" / "Too low") are provided to the guesser.
+   - **Time Limit:** 5 seconds per pick or guess.
+
+---
+
+### 👤 Single-Player Games (PvE)
+Single-player game statistics (e.g. high scores and averages) are updated directly on the user's profile database entry.
+
+1. **Quiz**
+   - **Format:** Category and difficulty-based test.
+   - **Categories:** Data Structures & Algorithms (DSA), Aptitude, and Web Development.
+   - **Difficulties:** Easy, Medium, and Hard.
+   - **Rules:** Shuffled set of questions with 4 options. A 45-second backend timer is enforced per question. Final score percentage and performance reviews are shown at completion.
+
+2. **Snake**
+   - **Format:** Classic 2D grid canvas arcade game.
+   - **Controls:** Arrow Keys / WASD controls.
+   - **Rules:** Snake grows (+1 segment) and updates score (+10 points) upon eating food. Running into walls or the snake's own tail results in game over. Includes progressive speed scaling.
+
+---
+
+## 🛠️ Technology Stack
+
+### Frontend Client
+* **Core:** React 19 (Vite Single Page Application)
+* **Styling:** Tailwind CSS 3, PostCSS, Autoprefixer
+* **Routing:** React Router DOM v7
+* **State Management:** Zustand (for lightweight user/room stores)
+* **Real-time Client:** Socket.io-client
+* **HTTP Client:** Axios
+* **Icons:** React Icons
+
+### Backend Server
+* **Environment:** Node.js, Express 5
+* **Real-time Server:** Socket.io (WebSocket transport protocol)
+* **Database Driver:** Mongoose (MongoDB Object Modeling)
+* **Security:** JWT (JSON Web Tokens) for sessions, bcryptjs for password encryption, and custom Express Rate Limiters.
+
+### Shared Modules
+* **`constants.js`:** Shared configuration limits (e.g., game timers, grid sizes, match formats).
+* **`eventNames.js`:** Shared socket event names to prevent drift between client and server triggers.
+* **`gameRules.js`:** Shared win checks, choice evaluation, and hints validation helper logic.
+
+---
+
+## 📂 Project Directory Structure
+
+```text
+GameSphere/
+├── client/              # React Frontend Client (Vite, Tailwind, Zustand)
+│   ├── public/          # Static public assets
+│   ├── src/             # Frontend source code
+│   │   ├── assets/      # Media & styles
+│   │   ├── components/  # Reusable UI components (e.g., ProtectedRoute)
+│   │   ├── games/       # Multiplayer PvP UI components
+│   │   │   ├── guessNumber/
+│   │   │   ├── rps/
+│   │   │   └── ticTacToe/
+│   │   ├── pages/       # Route pages (Home, Lobby, GameRoom, Quiz, Snake, Result)
+│   │   ├── services/    # REST API services (api, auth, quiz, room)
+│   │   ├── socket/      # Socket.io client setup
+│   │   ├── store/       # Zustand store implementations (userStore)
+│   │   ├── utils/       # Shared utility helpers
+│   │   ├── App.jsx      # Core React component wrapper
+│   │   ├── index.css    # Tailwind CSS index
+│   │   ├── main.jsx     # Frontend entry script
+│   │   └── routes.jsx   # Client routing table
+│   ├── package.json     # Frontend dependencies & configurations
+│   └── vite.config.js   # Vite server settings
+│
+├── server/              # Node.js/Express Backend Server
+│   ├── src/             # Backend source code
+│   │   ├── config/      # DB and server configs
+│   │   ├── controllers/ # REST controllers (auth, user, room, match, quiz)
+│   │   ├── middleware/  # Middlewares (auth, errorHandler, rateLimiter)
+│   │   ├── models/      # Mongoose schemas (User, GameRoom, Match, Question, etc.)
+│   │   ├── routes/      # Express endpoints (auth, user, rooms, matches, quiz)
+│   │   ├── sockets/     # Socket.io game events orchestrator (gameHandler.js)
+│   │   ├── utils/       # Utility files (generateRoomCode.js)
+│   │   ├── app.js       # Express app configurations & CORS configurations
+│   │   └── server.js    # Entrypoint script: launches servers, DB and WebSockets
+│   └── package.json     # Server dependencies & launch scripts
+│
+├── shared/              # Synchronized game logic shared across stacks
+│   ├── constants.js     # Shared configuration variables
+│   ├── eventNames.js    # Uniform Socket.io event name mappings
+│   └── gameRules.js     # Shared win checkers & hint generators
+│
+└── Readme.md            # Project documentation (this file)
+```
+
+---
+
+## 🗄️ Database Schemas (MongoDB / Mongoose)
+
+GameSphere maps data across 6 primary collections:
+
+### 1. `User` (`users` collection)
+Stores profile credentials, login logs, and cumulative statistics.
+```javascript
+{
+  name: { type: String, required: true, unique: true },
+  email: { type: String, required: true, unique: true },
+  password: { type: String, required: true },
+  totalMatches: { type: Number, default: 0 },
+  totalWins: { type: Number, default: 0 },
+  totalLosses: { type: Number, default: 0 },
+  stats: {
+    tictactoe: { wins: Number, losses: Number, totalRounds: Number },
+    rockpaperscissors: { wins: Number, losses: Number, totalRounds: Number },
+    guessNumber: { wins: Number, losses: Number, totalRounds: Number },
+    quiz: { totalAttempts: Number, avgScore: Number },
+    snake: { bestScore: Number }
+  },
+  avatar: String,
+  lastLogin: Date
+}
+```
+
+### 2. `GameRoom` (`gamerooms` collection)
+Holds real-time room metadata for multiplayer match setup.
+```javascript
+{
+  code: { type: String, required: true, unique: true },
+  gameType: { type: String, enum: ["tic-tac-toe", "rock-paper-scissors", "guess-number"] },
+  players: [
+    {
+      userId: { type: ObjectId, ref: "User" },
+      name: String,
+      joinedAt: { type: Date, default: Date.now }
+    }
+  ],
+  status: { type: String, enum: ["waiting", "in-progress", "completed"], default: "waiting" },
+  createdAt: { type: Date, default: Date.now }
+}
+```
+
+### 3. `Match` (`matches` collection)
+Persists a history of completed multiplayer matches containing round-by-round logs.
+```javascript
+{
+  roomId: { type: ObjectId, ref: "GameRoom" },
+  gameType: { type: String, enum: ["tic-tac-toe", "rock-paper-scissors", "guess-number"] },
+  players: [{ type: ObjectId, ref: "User" }],
+  rounds: [
+    {
+      roundNumber: Number,
+      moves: [
+        {
+          userId: { type: ObjectId, ref: "User" },
+          move: Schema.Types.Mixed // Grid index, R/P/S choice, or guessed number
+        }
+      ],
+      winner: { type: ObjectId, ref: "User" }, // null for draws
+      completedAt: Date
+    }
+  ],
+  winner: { type: ObjectId, ref: "User" }, // null for draws
+  scores: {
+    player1Score: Number,
+    player2Score: Number
+  },
+  completedAt: { type: Date, default: Date.now }
+}
+```
+
+### 4. `Question` (`questions` collection)
+Stores static single-player Quiz questions.
+```javascript
+{
+  category: { type: String, enum: ["DSA", "Aptitude", "WebDev"] },
+  difficulty: { type: String, enum: ["easy", "medium", "hard"] },
+  question: String,
+  options: [String],
+  correctAnswer: Number, // Index of correct option (0-3)
+  explanation: String
+}
+```
+
+### 5. `QuizAttempt` (`quizattempts` collection)
+Persists history and breakdowns of single-player Quiz sessions.
+```javascript
+{
+  userId: { type: ObjectId, ref: "User" },
+  category: String,
+  difficulty: String,
+  questions: [
+    {
+      quizId: { type: ObjectId, ref: "Question" },
+      selectedAnswer: Number,
+      isCorrect: Boolean,
+      timeTaken: Number
+    }
+  ],
+  totalCorrect: Number,
+  totalQuestions: Number,
+  score: Number, // Percentage
+  completedAt: { type: Date, default: Date.now }
+}
+```
+
+### 6. `SnakeScore` (`snakescores` collection)
+Persists Snake game records.
+```javascript
+{
+  userId: { type: ObjectId, ref: "User" },
+  score: Number,
+  foodEaten: Number,
+  duration: Number, // in seconds
+  playedAt: { type: Date, default: Date.now }
+}
+```
+
+---
+
+## 📡 REST API Specifications
+
+### Authentication API
+* `POST /api/auth/register` - Registers a new user.
+  - **Body:** `{ name, email, password }`
+* `POST /api/auth/login` - Authenticates user & returns token.
+  - **Body:** `{ email, password }`
+  - **Response:** `{ success: true, token, user }`
+
+### User Profiles API
+* `GET /api/user/profile/:userId` - Fetches user statistics and recent matches.
+* `PUT /api/user/profile` - Updates username/avatar. Requires Auth headers.
+
+### Rooms API
+* `POST /api/rooms/create` - Creates a new room. Requires Auth headers.
+  - **Body:** `{ gameType }`
+* `GET /api/rooms/:code` - Verifies existence of code and fetches details.
+* `POST /api/rooms/:code/join` - Checks capacity and joins a room. Requires Auth.
+
+### Matches API
+* `GET /api/matches/user/:userId` - Retrieves complete match logs for a specific player.
+* `GET /api/matches/:matchId` - Fetches detailed info about a specific match.
+
+### Quiz API
+* `GET /api/quiz/questions/:category/:difficulty` - Shuffles and loads 10–15 quiz questions. Correct answers are stripped to prevent cheating.
+* `POST /api/quiz/submit` - Validates answers, logs attempt, calculates score, and updates user profile average.
+  - **Body:** `{ category, difficulty, answers: [{ quizId, selectedAnswer, timeTaken }] }`
+
+### Leaderboard API
+* `GET /api/user/leaderboard/:gameType` - Returns top players ranked by wins or high-scores.
+
+---
+
+## 🔌 Real-Time WebSockets Communication
+
+Socket.io matches state across connections. When a client connects, it must pass a JWT authorization header or handshake payload.
+
+### Socket Connection Events
+* **`create-room`:** Client requests a code. Backend sends room payload.
+* **`join-room`:** Client registers with room code. Broadcasts `opponent-joined` to other room members.
+* **`make-move` / `submit-choice` / `submit-guess`:** Sends active game inputs.
+* **`game-state-sync`:** Emitted by the server to update the board, score, and whose turn it is.
+* **`game-started`:** Emitted when two players are ready, triggering the match.
+* **`round-result`:** Broadcasts round outcomes, individual point awards, and round transitions.
+* **`match-result`:** Emitted when a player reaches 2 wins, indicating match completion, database saving, and redirect coordinates.
+* **`opponent-disconnected`:** Emitted when a client socket drops. The other player gets declared winner by default after a 30s grace window.
+
+---
+
+## 🚀 Setup & Installation
+
+### Prerequisites
+* [Node.js](https://nodejs.org/) (v16+ recommended)
+* [MongoDB](https://www.mongodb.com/) (Local instance or MongoDB Atlas URI)
+
+### 1. Set Up the Server
+1. Navigate to the server folder:
+   ```bash
+   cd server
+   ```
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Create a `.env` file in the root of the `server/` directory:
+   ```env
+   PORT=5000
+   MONGO_URI=your_mongodb_connection_string
+   JWT_SECRET=your_secure_jwt_secret_key
+   CLIENT_URL=http://localhost:5173
+   ```
+4. Start the server in development mode:
+   ```bash
+   npm run dev
+   ```
+
+### 2. Set Up the Client
+1. Navigate to the client folder:
+   ```bash
+   cd ../client
+   ```
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Create a `.env` file in the root of the `client/` directory:
+   ```env
+   VITE_API_URL=http://localhost:5000
+   ```
+4. Start the client:
+   ```bash
+   npm run dev
+   ```
+5. Open your browser and navigate to `http://localhost:5173`.
+
+---
+
+## 🔐 Security Considerations
+
+1. **Server-Side Validation:** All game logic (such as checking matching grid slots or verifying if Rock beats Scissors) is executed and validated on the backend.
+2. **Strict Timers:** Move timers (5-seconds) are handled server-side through timers. Client UI elements show synchronization bars but do not count as authoritative timers.
+3. **Cheat Prevention:** Correct answers in the single-player Quiz API are never sent to the client browser until the quiz is submitted and validated on the backend.
+4. **JWT Verification:** Custom auth checks are executed both on standard HTTP routers and on initial socket connections. Invalid tokens are rejected instantly.
+
+---
+
+## 🎯 Verification & Testing checklist
+
+* [ ] **Auth Check:** Register a new user, log in, and ensure JWT is stored in local storage.
+* [ ] **Room Routing:** Create a multiplayer room, verify a 6-character code is generated, and verify that a second player joining via code is successfully added to the game lobby.
+* [ ] **Turn Syncing:** Run two browser sessions side-by-side. Make a move on Player A's window, check if it displays instantly on Player B's window, and check that Player A is locked from making further moves.
+* [ ] **Timer Validation:** Wait 5 seconds on Tic-Tac-Toe without playing. Verify that the turn changes, a round win is awarded to the opponent, and a round score is shown.
+* [ ] **Match Over:** Win two consecutive rounds in RPS. Check that the lobby closes, results write to MongoDB, and players are redirected to `/result/:roomCode`.
+* [ ] **Quiz Logic:** Fetch a Quiz session, answer all questions, and confirm details log in the database.
+* [ ] **Snake Game:** Start a Snake session, verify collision ends game, and verify scores sync to profile stats.
+>>>>>>> 4a25bb3 (somechange file)
